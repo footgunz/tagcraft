@@ -36,6 +36,10 @@ test('opens on the gift tag', async ({ page }) => {
   await expect(page.locator('#status')).toContainText('Drag the hole')
 })
 
+test('shows which build it is', async ({ page }) => {
+  await expect(page.locator('.brand .version')).toHaveText(/^(v\d+\.\d+\.\d+.*|[0-9a-f]{7,}.*|dev)$/)
+})
+
 test('Save appears once the preset is changed', async ({ page }) => {
   await expect(section(page, 'Save')).toHaveCount(0)
   await setNumber(page, 'Shape', 'Width', '3.5')

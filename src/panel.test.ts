@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRESETS, normalizeDesign } from './design'
 import { settleDesign } from './hole'
-import { isUnchangedPreset, presetEntries, sheetSummary, switchKind } from './panel'
+import { isUnchangedPreset, presetEntries, sheetSummary, switchKind, versionLink } from './panel'
 import { DEFAULT_SHEET } from './sheet'
 import { naturalAspect } from './shapes'
 
@@ -64,5 +64,14 @@ describe('isUnchangedPreset', () => {
   })
   it('is false for a saved copy under another name', () => {
     expect(isUnchangedPreset({ ...settleDesign(PRESETS[0]).design, name: 'Bag tag' })).toBe(false)
+  })
+})
+
+describe('versionLink', () => {
+  it('links a release tag to its release', () => {
+    expect(versionLink('v0.0.4')).toEqual({ text: 'v0.0.4', href: 'https://github.com/footgunz/tagcraft/releases/tag/v0.0.4' })
+  })
+  it('shows other builds as plain text', () => {
+    for (const v of ['v0.0.3-3-gbdac605', 'bdac605', 'dev']) expect(versionLink(v).href).toBeNull()
   })
 })
