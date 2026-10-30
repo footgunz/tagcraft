@@ -1,7 +1,8 @@
-import { contourToPathData } from './contour'
+import { contourToPathData, mapContour, type Contour, type Pt } from './contour'
 import type { Design } from './design'
 import { holeContour } from './hole'
 import { buildOutline } from './shapes'
+import { layoutSheet, sheetDimensions, type Placement, type Sheet } from './sheet'
 import { fromMm, type Unit } from './units'
 
 function num(v: number, digits = 3): string {
@@ -22,24 +23,60 @@ export function tagPathData(d: Design): string {
   return `${contourToPathData(buildOutline(d))} ${contourToPathData(holeContour(d))}`
 }
 
-export function designToSvg(d: Design, unit: Unit): string {
-  const w = `${num(fromMm(d.width, unit))}${unit}`
-  const h = `${num(fromMm(d.height, unit))}${unit}`
-  const viewBox = `0 0 ${num(d.width)} ${num(d.height)}`
+function svgDocument(width: number, height: number, unit: Unit, paths: string[]): string {
+  const w = `${num(fromMm(width, unit))}${unit}`
+  const h = `${num(fromMm(height, unit))}${unit}`
+  const viewBox = `0 0 ${num(width)} ${num(height)}`
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${esc(w)}" height="${esc(h)}" viewBox="${esc(viewBox)}">`,
     `  <g id="layer-tag" inkscape:groupmode="layer" inkscape:label="Tag">`,
-    `    <path id="tag" d="${esc(tagPathData(d))}" fill="#000000" fill-rule="evenodd"/>`,
+    ...paths,
     `  </g>`,
     `</svg>`,
     '',
   ].join('\n')
 }
 
-export function svgFilename(d: Design): string {
-  const slug = d.name
+function pathElement(id: string, d: string): string {
+  return `    <path id="${esc(id)}" d="${esc(d)}" fill="#000000" fill-rule="evenodd"/>`
+}
+
+export function designToSvg(d: Design, unit: Unit): string {
+  return svgDocument(d.width, d.height, unit, [pathElement('tag', tagPathData(d))])
+}
+
+/** Moves a tag-space point into its slot on the sheet; a turned tag is rotated 90° clockwise. */
+function placer(d: Design, p: Placement): (q: Pt) => Pt {
+  return p.rotation === 90 ? (q) => ({ x: p.x + d.height - q.y, y: p.y + q.x }) : (q) => ({ x: p.x + q.x, y: p.y + q.y })
+}
+
+/**
+ * The whole sheet at true size, one evenodd path per tag. Positions and rotations
+ * are written into the coordinates (no transforms), so every cutter reads them.
+ */
+export function sheetToSvg(d: Design, sheet: Sheet, unit: Unit): string {
+  const { width, height } = sheetDimensions(sheet)
+  const outline = buildOutline(d)
+  const hole = holeContour(d)
+  const paths = layoutSheet(d, sheet).map((p, i) => {
+    const place = (c: Contour) => contourToPathData(mapContour(c, placer(d, p)))
+    return pathElement(`tag-${i + 1}`, `${place(outline)} ${place(hole)}`)
+  })
+  return svgDocument(width, height, unit, paths)
+}
+
+function slug(d: Design): string {
+  const s = d.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-  return `tagcraft-${slug || d.shape.kind}.svg`
+  return s || d.shape.kind
+}
+
+export function svgFilename(d: Design): string {
+  return `tagcraft-${slug(d)}.svg`
+}
+
+export function sheetSvgFilename(d: Design, sheet: Sheet): string {
+  return `tagcraft-${slug(d)}-${sheet.size}-${layoutSheet(d, sheet).length}up.svg`
 }
