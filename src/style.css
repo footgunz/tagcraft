@@ -408,3 +408,94 @@ button.chip.off i {
   font-size: 12px;
   padding: 3px 10px;
 }
+
+/* Tagcraft */
+button.preset {
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 74px;
+  padding: 6px 4px 4px;
+  font-size: 12px;
+}
+
+button.preset svg {
+  width: 56px;
+  height: 36px;
+  fill: var(--text);
+}
+
+button.preset.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.segmented {
+  display: inline-flex;
+}
+
+.segmented button {
+  border-radius: 0;
+  min-width: 52px;
+}
+
+.segmented button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.segmented button:last-child {
+  border-radius: 0 6px 6px 0;
+  margin-left: -1px;
+}
+
+.segmented button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+#preview svg {
+  touch-action: none;
+  user-select: none;
+}
+
+#preview .tag {
+  fill: #fff;
+  stroke: var(--text);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+#preview .dim {
+  fill: var(--muted);
+  font-family: inherit;
+}
+
+#preview .hole {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+#preview .hole.warn,
+#preview .handle.warn {
+  stroke: #c62828;
+}
+
+#preview .handle.warn {
+  fill: #c62828;
+}
+
+#preview .hit {
+  fill: transparent;
+  cursor: grab;
+}
+
+#preview .handle {
+  fill: var(--accent);
+  stroke: #fff;
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  cursor: nwse-resize;
+}
