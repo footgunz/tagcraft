@@ -18,8 +18,10 @@ const statusEl = document.getElementById('status')!
 
 const STORAGE_MSG = "Browser storage is unavailable; designs won't be saved"
 
+const HINT = 'Drag the hole to move it \u00b7 drag its edge dot to resize'
+
 function renderStatus() {
-  statusEl.textContent = state.status
+  statusEl.textContent = state.status || HINT
   statusEl.classList.toggle('error', state.status.startsWith('Warning'))
 }
 

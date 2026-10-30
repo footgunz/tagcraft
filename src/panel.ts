@@ -47,10 +47,10 @@ function withShape(d: Design, patch: Record<string, unknown>): Design {
   return { ...d, shape: { ...d.shape, ...patch } as ShapeSettings }
 }
 
-/** Switch base shape: keeps size and hole, takes that kind's settings from its preset. */
+/** Switch base shape: keeps size and hole, takes that kind's settings and lock from its preset. */
 export function switchKind(d: Design, kind: Kind): Design {
   const base = PRESETS.find((p) => p.shape.kind === kind)!
-  return { ...d, shape: { ...base.shape }, points: null, lockProportions: false }
+  return { ...d, shape: { ...base.shape }, points: null, lockProportions: base.lockProportions }
 }
 
 function section(root: HTMLElement, title: string): HTMLElement {
