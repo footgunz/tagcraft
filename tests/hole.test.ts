@@ -30,6 +30,14 @@ describe('hole', () => {
     expect(adjusted).toBe(true)
     expect(design.hole.diameter).toBe(1)
   })
+  it('finds a 1 mm hole nearest the request when 1.05 mm does not fit', () => {
+    const slim = { ...PRESETS[1], height: 7.37, shape: { kind: 'rectangle' as const, end: 'square' as const, clip: 0, rounding: 0 }, hole: { diameter: 6.35, offset: 0 } }
+    const { design, adjusted } = clampHole(slim)
+    expect(adjusted).toBe(true)
+    expect(design.hole.diameter).toBe(1)
+    expect(holeWallOk(design)).toBe(true)
+    expect(design.hole.offset).toBeCloseTo(3.7)
+  })
   it('edited outlines are never clamped', () => {
     const d = { ...PRESETS[0], hole: { diameter: 6.35, offset: 0 },
       points: normalizeContour(buildOutline(PRESETS[0]), 76.2, 38.1) }

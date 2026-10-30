@@ -65,15 +65,18 @@ export function clampHole(d: Design): { design: Design; adjusted: boolean } {
     adjusted: true,
   })
 
-  for (let diameter = d.hole.diameter; diameter >= MIN_DIAMETER - TOL; diameter = Math.round((diameter - STEP) * 1000) / 1000) {
+  // Scan from the requested diameter down to exactly MIN_DIAMETER (inclusive); a request below it is raised to it.
+  for (let diameter = d.hole.diameter; ; diameter = Math.round((diameter - STEP) * 1000) / 1000) {
     const d0 = Math.max(diameter, MIN_DIAMETER)
     let best = -1
     for (let i = 0; i < offsets.length; i++) {
       if (clear[i] >= needed(d0) && (best < 0 || Math.abs(offsets[i] - d.hole.offset) < Math.abs(offsets[best] - d.hole.offset))) best = i
     }
     if (best >= 0) return withHole(d0, offsets[best])
+    if (d0 === MIN_DIAMETER) break
   }
 
+  // Nothing fits even at 1 mm: use the most open spot; the wall may still be violated here.
   let bestI = 0
   for (let i = 1; i < clear.length; i++) if (clear[i] > clear[bestI]) bestI = i
   return withHole(MIN_DIAMETER, offsets[bestI])
