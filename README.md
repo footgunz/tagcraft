@@ -59,6 +59,16 @@ npm run test:e2e
 
 Runs browser smoke tests with [Playwright](https://playwright.dev/) against the built `dist/tagcraft.html`, opened from disk. Install Chromium once; rebuild before each run so the tests see your changes.
 
+### Updating the guide images
+
+The screenshot and animations in the [user guide](docs/guide.md) live in [`docs/assets/`](docs/assets/). After changing the UI, regenerate them with:
+
+```bash
+npm run docs:screenshots
+```
+
+Add shot names (for example `-- hole sheet`) to redo only those. It uses Playwright's Chromium (`npx playwright install chromium`); set `CHROME_PATH` to use another Chrome or Edge.
+
 ## How it works
 
 | File | Role |
