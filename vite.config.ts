@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { renameSync } from 'node:fs'
+import { renameSync, writeFileSync } from 'node:fs'
 import { defineConfig, type Plugin } from 'vite'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 
@@ -10,6 +10,20 @@ function renameOutput(name: string): Plugin {
     apply: 'build',
     closeBundle() {
       renameSync('dist/index.html', `dist/${name}`)
+    },
+  }
+}
+
+/**
+ * Write dist/version.json next to the app. The published app fetches it,
+ * bypassing caches, to notice it's an older copy and load the new release.
+ */
+function versionFile(version: string): Plugin {
+  return {
+    name: 'version-file',
+    apply: 'build',
+    closeBundle() {
+      writeFileSync('dist/version.json', JSON.stringify({ version }) + '\n')
     },
   }
 }
@@ -28,9 +42,11 @@ function appVersion(): string {
   }
 }
 
+const version = appVersion()
+
 export default defineConfig({
   server: { port: 5173 },
-  define: { __APP_VERSION__: JSON.stringify(appVersion()) },
+  define: { __APP_VERSION__: JSON.stringify(version) },
   // Everything is inlined into one HTML file that opens straight from disk.
-  plugins: [viteSingleFile(), renameOutput('tagcraft.html')],
+  plugins: [viteSingleFile(), renameOutput('tagcraft.html'), versionFile(version)],
 })

@@ -8,6 +8,7 @@ import { renderPreview, type PreviewActions } from './preview'
 import { DEFAULT_SHEET, layoutSheet, normalizeSheet } from './sheet'
 import { createStorage, defaultStore } from './storage'
 import { designToSvg, sheetSvgFilename, sheetToSvg, svgFilename } from './svg'
+import { checkForUpdate } from './update'
 import type { Unit } from './units'
 
 const storage = createStorage(defaultStore())
@@ -194,3 +195,4 @@ copyBtn.addEventListener('click', async () => {
 })
 
 commit(storage.loadCurrent() ?? PRESETS[0])
+void checkForUpdate(__APP_VERSION__)
