@@ -33,4 +33,15 @@ describe('design', () => {
     expect(PRESETS.map((p) => p.name)).toEqual(['Gift tag', 'Rectangle', 'Star', 'Wavy', 'Hexagon', 'Circle', 'Ellipse', 'Oval', 'Seal'])
   })
   it('normalizeDesign(undefined) is the gift tag', () => expect(normalizeDesign(undefined).name).toBe('Gift tag'))
+  it('locked hexagon too tall clamps height and back-solves width', () => {
+    const d = normalizeDesign({ ...PRESETS[4], width: 304.8 })
+    expect(d.height).toBeCloseTo(304.8, 6)
+    expect(d.width).toBeCloseTo(304.8 / naturalAspect(d.shape), 6)
+  })
+  it('locked triangle too short clamps height and back-solves width', () => {
+    const d = normalizeDesign({ ...PRESETS[4], width: 12.7, shape: { kind: 'polygon', sides: 3, rounding: 0 } })
+    expect(d.height).toBeCloseTo(12.7, 6)
+    expect(d.width).toBeCloseTo(12.7 / naturalAspect(d.shape), 6)
+    expect(d.width).toBeLessThanOrEqual(304.8)
+  })
 })

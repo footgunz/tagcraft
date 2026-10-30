@@ -65,4 +65,76 @@ describe('shapes', () => {
     expect(contourBounds(buildOutline(next)).maxX).toBeCloseTo(90)
     expect(contourBounds(buildOutline(next)).minX).toBeCloseTo(0)
   })
+
+  const inBox = (d: { width: number; height: number }, c: ReturnType<typeof buildOutline>) => {
+    const b = contourBounds(c)
+    for (const v of [b.minX, b.minY, b.maxX, b.maxY]) expect(Number.isFinite(v)).toBe(true)
+    expect(b.minX).toBeCloseTo(0, 6)
+    expect(b.minY).toBeCloseTo(0, 6)
+    expect(b.maxX).toBeCloseTo(d.width, 6)
+    expect(b.maxY).toBeCloseTo(d.height, 6)
+  }
+  it('clip is capped at the width so a tall narrow rectangle stays in its box', () => {
+    const d = normalizeDesign({ ...gift, width: 12.7, height: 200, shape: { kind: 'rectangle', end: 'clipped', clip: 90, rounding: 0 } })
+    expect(d.shape).toMatchObject({ clip: 12.7 })
+    inBox(d, buildOutline(d))
+  })
+  it.each(['square', 'clipped', 'rounded'] as const)('tall narrow wavy (%s end) with a huge clip stays in its box', (end) => {
+    const d = normalizeDesign({ ...gift, width: 12.7, height: 200, shape: { kind: 'wavy', end, clip: 90, waves: 4, waveHeight: 3 } })
+    const c = buildOutline(d)
+    for (const n of c) for (const q of [n.p, n.hIn, n.hOut]) expect(Number.isFinite(q.x) && Number.isFinite(q.y)).toBe(true)
+    inBox(d, c)
+    // Wave nodes march left to right along the top edge: never backwards.
+    const top = c.filter((n) => n.p.y < d.height / 4 && n.p.y > 1e-6)
+    for (const n of top) expect(n.hOut.x).toBeGreaterThanOrEqual(n.hIn.x)
+  })
+  describe('wavy', () => {
+    const wavy = PRESETS.find((p) => p.shape.kind === 'wavy')!
+    const make = (shape: object) => normalizeDesign({ ...wavy, shape: { ...wavy.shape, ...shape } })
+    const topPts = (d: typeof wavy) => flatten(buildOutline(d)).filter((p) => p.y < d.height / 2)
+    it('clipped end has a tip and waves start after the clip', () => {
+      const d = make({ end: 'clipped', clip: 12.7 })
+      inBox(d, buildOutline(d))
+      const pts = flatten(buildOutline(d))
+      expect(pts.some((p) => Math.abs(p.x) < 1e-6 && Math.abs(p.y - 12.7) < 1e-6)).toBe(true)
+      expect(Math.max(...topPts(d).filter((p) => p.x > 12.7 + 1 && p.x < d.width - 1).map((p) => p.y))).toBeCloseTo(3, 1)
+    })
+    it('rounded end is a semicircle', () => {
+      const d = make({ end: 'rounded' })
+      inBox(d, buildOutline(d))
+      for (const p of flatten(buildOutline(d)).filter((p) => p.x < 19.05 - 0.01))
+        expect(Math.hypot(p.x - 19.05, p.y - 19.05)).toBeCloseTo(19.05, 1)
+    })
+    it('waves = 3 puts three dips on each long edge', () => {
+      const d = make({ waves: 3 })
+      const c = buildOutline(d)
+      expect(c).toHaveLength(4 + 2 * (2 * 3 - 1))
+      const dips = c.filter((n) => Math.abs(n.p.y - 3) < 1e-6).map((n) => +n.p.x.toFixed(3))
+      const half = d.width / 6
+      expect(dips).toEqual([1, 3, 5].map((k) => +(k * half).toFixed(3)))
+    })
+    it('bottom edge mirrors the top', () => {
+      const d = make({})
+      const bottom = flatten(buildOutline(d)).filter((p) => p.y > d.height / 2 && p.x > 1 && p.x < d.width - 1)
+      expect(Math.min(...bottom.map((p) => p.y))).toBeCloseTo(d.height - 3, 1)
+    })
+  })
+  it.each(['Star', 'Seal', 'Hexagon'])('rounded %s preset fills its box', (name) => {
+    const d = PRESETS.find((p) => p.name === name)!
+    const b = contourBounds(buildOutline(d))
+    expect(Math.abs(b.minX)).toBeLessThan(0.01)
+    expect(Math.abs(b.minY)).toBeLessThan(0.01)
+    expect(Math.abs(b.maxX - d.width)).toBeLessThan(0.01)
+    expect(Math.abs(b.maxY - d.height)).toBeLessThan(0.01)
+  })
+  it('a point edit past the size limit scales the outline to the declared size', () => {
+    const base = { ...PRESETS[1], shape: { ...PRESETS[1].shape, rounding: 0 } as any }
+    const d = { ...base, points: normalizeContour(buildOutline(base), base.width, base.height) }
+    const next = applyPointEdit(d, moveNode(buildOutline(d), 1, 'p', { x: 381, y: 0 }))
+    expect(next.width).toBe(304.8)
+    const b = contourBounds(buildOutline(next))
+    expect(b.minX).toBeCloseTo(0)
+    expect(b.maxX).toBeCloseTo(304.8)
+    expect(b.maxY).toBeCloseTo(next.height)
+  })
 })

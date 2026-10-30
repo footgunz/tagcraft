@@ -48,7 +48,7 @@ export function naturalAspect(shape: ShapeSettings): number {
 }
 
 function rectanglePoints(w: number, h: number, end: 'square' | 'clipped' | 'rounded', clip: number): Pt[] {
-  const c = Math.min(clip, h / 2)
+  const c = Math.min(clip, h / 2, w)
   if (end === 'clipped' && c > EPS) {
     return [
       { x: c, y: 0 },
@@ -85,6 +85,8 @@ function wavy(d: Design, s: Extract<ShapeSettings, { kind: 'wavy' }>): Contour {
   const topStart = base.reduce((best, n, i) => (Math.abs(n.p.y) < EPS && (best < 0 || n.p.x < base[best].p.x) ? i : best), -1)
   const xL = base[topStart].p.x
   const half = (w - xL) / (2 * s.waves)
+  // No room left for waves (the clip spans the whole width): keep the plain outline.
+  if (half < EPS) return base
   const hl = WAVE_HANDLE * half
   const A = s.waveHeight
   const out: BezierNode[] = base.map((n) => ({ p: { ...n.p }, hIn: { ...n.hIn }, hOut: { ...n.hOut } }))
@@ -119,6 +121,26 @@ function wavy(d: Design, s: Extract<ShapeSettings, { kind: 'wavy' }>): Contour {
   return result
 }
 
+/**
+ * Rounds the polygon so the rounded outline (not the sharp vertices) fills [0,w]x[0,h].
+ * Rounding pulls the outline in from the tips, so the vertices are re-stretched a few
+ * times; each corner stays a circular arc of the requested radius.
+ */
+function roundedToFill(verts: Pt[], w: number, h: number, rounding: number): Contour {
+  const e = extent(verts)
+  let pts = verts.map((p) => ({ x: ((p.x - e.minX) / e.w) * w, y: ((p.y - e.minY) / e.h) * h }))
+  let out = roundedPolygon(pts, rounding)
+  for (let i = 0; i < 6 && rounding > 0; i++) {
+    const b = contourBounds(out)
+    if (Math.max(Math.abs(b.minX), Math.abs(b.minY), Math.abs(b.maxX - w), Math.abs(b.maxY - h)) < 1e-4) break
+    const sx = w / (b.maxX - b.minX)
+    const sy = h / (b.maxY - b.minY)
+    pts = pts.map((p) => ({ x: (p.x - b.minX) * sx, y: (p.y - b.minY) * sy }))
+    out = roundedPolygon(pts, rounding)
+  }
+  return out
+}
+
 export function buildOutline(d: Design): Contour {
   if (d.points) return denormalizeContour(d.points, d.width, d.height)
   const { width: w, height: h } = d
@@ -129,14 +151,8 @@ export function buildOutline(d: Design): Contour {
     case 'wavy':
       return wavy(d, s)
     case 'polygon':
-    case 'star': {
-      const verts = unitVertices(s)
-      const e = extent(verts)
-      return roundedPolygon(
-        verts.map((p) => ({ x: ((p.x - e.minX) / e.w) * w, y: ((p.y - e.minY) / e.h) * h })),
-        s.rounding,
-      )
-    }
+    case 'star':
+      return roundedToFill(unitVertices(s), w, h, s.rounding)
     case 'ellipse': {
       const kx = (KAPPA * w) / 2
       const ky = (KAPPA * h) / 2
@@ -160,13 +176,19 @@ const clampRange = (v: number, key: 'width' | 'height') => Math.min(RANGES[key].
 
 /**
  * Stores an edited outline (mm) on the design. The contour is shifted so its bounds start at 0,0,
- * width/height follow its bounds, and the points are normalized against those new bounds.
+ * width/height follow its bounds (scaled into the allowed size range), and the points are
+ * normalized against those new bounds.
  */
 export function applyPointEdit(d: Design, next: Contour): Design {
   const b = contourBounds(next)
-  const width = clampRange(b.maxX - b.minX, 'width')
-  const height = clampRange(b.maxY - b.minY, 'height')
-  const shifted = mapContour(next, (p) => ({ x: p.x - b.minX, y: p.y - b.minY }))
+  const rawW = b.maxX - b.minX
+  const rawH = b.maxY - b.minY
+  const width = clampRange(rawW, 'width')
+  const height = clampRange(rawH, 'height')
+  // Scale into the clamped size so the declared size always matches the outline.
+  const sx = rawW > EPS ? width / rawW : 1
+  const sy = rawH > EPS ? height / rawH : 1
+  const shifted = mapContour(next, (p) => ({ x: (p.x - b.minX) * sx, y: (p.y - b.minY) * sy }))
   // Proportions can't stay locked to a base shape once the outline is hand-edited.
   return { ...d, width, height, lockProportions: false, points: normalizeContour(shifted, width, height) }
 }

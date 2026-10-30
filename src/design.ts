@@ -114,7 +114,7 @@ function normalizeNodes(v: unknown): Contour | null {
 /** Repairs anything (UI state, parsed JSON) into a valid Design. Hole clamping is separate. */
 export function normalizeDesign(input: unknown): Design {
   const d = rec(input)
-  const width = range('width', d.width, GIFT.width)
+  let width = range('width', d.width, GIFT.width)
   let height = range('height', d.height, GIFT.height)
 
   const s = rec(d.shape)
@@ -147,10 +147,16 @@ export function normalizeDesign(input: unknown): Design {
   const lock = typeof d.lockProportions === 'boolean' ? d.lockProportions : GIFT.lockProportions
   const points = normalizeNodes(d.points)
   if (lock && !points && (shape.kind === 'polygon' || shape.kind === 'star' || shape.kind === 'ellipse')) {
-    height = width * naturalAspect(shape)
+    const aspect = naturalAspect(shape)
+    height = width * aspect
+    if (height < RANGES.height.min || height > RANGES.height.max) {
+      height = range('height', height, height)
+      width = height / aspect
+    }
   }
   if (shape.kind === 'rectangle' || shape.kind === 'wavy') {
-    shape.clip = range('clip', s.clip, 12.7, height / 2)
+    // Past the width, the clipped corners would cross over the far end.
+    shape.clip = range('clip', s.clip, 12.7, Math.min(height / 2, width))
   }
   if (shape.kind === 'wavy') shape.waveHeight = range('waveHeight', s.waveHeight, 3, height / 4)
 
