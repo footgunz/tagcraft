@@ -77,11 +77,11 @@ const GIFT = PRESETS[0]
 const KINDS = ['rectangle', 'polygon', 'star', 'wavy', 'ellipse', 'oval'] as const
 const ENDS: EndStyle[] = ['square', 'clipped', 'rounded']
 
-function rec(v: unknown): Record<string, unknown> {
+export function rec(v: unknown): Record<string, unknown> {
   return typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {}
 }
 
-function clampNum(v: unknown, fallback: number, min: number, max: number, integer = false): number {
+export function clampNum(v: unknown, fallback: number, min: number, max: number, integer = false): number {
   let n = typeof v === 'number' && Number.isFinite(v) ? v : fallback
   if (integer) n = Math.round(n)
   return Math.min(max, Math.max(min, n))
