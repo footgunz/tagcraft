@@ -1,6 +1,7 @@
 import type { Design, EndStyle, ShapeSettings } from './design'
 import { PRESETS } from './design'
 import { buildOutline, naturalAspect } from './shapes'
+import { layoutSheet, SHEET_PRESETS, type Sheet, type SheetSize } from './sheet'
 import { contourBounds } from './contour'
 import { tagPathData } from './svg'
 import { fromMm, toMm, type Unit } from './units'
@@ -14,6 +15,9 @@ export interface AppState {
   saved: Design[]
   /** False when browser storage is unavailable (saving disabled). */
   canSave: boolean
+  /** Tag: the editor. Sheet: read-only layout of copies, and what the export buttons export. */
+  view: 'tag' | 'sheet'
+  sheet: Sheet
 }
 
 export interface PanelActions {
@@ -25,6 +29,7 @@ export interface PanelActions {
   resetPoints(): void
   saveAs(name: string): void
   removeSaved(name: string): void
+  updateSheet(patch: (s: Sheet) => Sheet): void
 }
 
 /** Trimmed, case-insensitive name comparison (matches storage's rule). */
@@ -71,6 +76,24 @@ const END_LABELS: [EndStyle, string][] = [
   ['clipped', 'Clipped'],
   ['rounded', 'Rounded'],
 ]
+
+const SIZE_LABELS: [SheetSize, string][] = [
+  ['letter', SHEET_PRESETS.letter.label],
+  ['a4', SHEET_PRESETS.a4.label],
+  ['custom', 'Custom'],
+]
+
+/** The Sheet section's summary line; `fits` is false when not even one copy fits. */
+export function sheetSummary(d: Design, sheet: Sheet): { text: string; fits: boolean } {
+  const max = layoutSheet(d, { ...sheet, count: null }).length
+  if (max === 0) return { text: "The tag doesn't fit on this sheet, even turned", fits: false }
+  const placed = layoutSheet(d, sheet)
+  const turned = placed.filter((p) => p.rotation === 90).length
+  const upright = placed.length - turned
+  const parts = [upright && `${upright} upright`, turned && `${turned} turned`].filter(Boolean).join(', ')
+  const head = placed.length < max ? `Cutting ${placed.length} of ${max}` : `${max} ${max === 1 ? 'tag fits' : 'tags fit'}`
+  return { text: `${head} · ${parts}`, fits: true }
+}
 
 const canLock = (k: Kind) => k === 'polygon' || k === 'star' || k === 'ellipse'
 
@@ -361,6 +384,38 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
     actions.update((x) => ({ ...x, hole: { ...x.hole, diameter: v } })), rerender)
   numberRow(hole, holeLabels(s.kind).offset, d.hole.offset, unit, { length: true, id: 'hole-offset' }, (v) =>
     actions.update((x) => ({ ...x, hole: { ...x.hole, offset: v } })), rerender)
+
+  // Sheet: the paper the copies are laid out on (shown in the Sheet view).
+  const sh = state.sheet
+  const sheetSec = section(root, 'Sheet')
+  const setSheet = (patch: Partial<Sheet>) => actions.updateSheet((x) => ({ ...x, ...patch }))
+  selectRow(sheetSec, 'Size', SIZE_LABELS, sh.size, (v) => setSheet({ size: v }))
+  if (sh.size === 'custom') {
+    numberRow(sheetSec, 'Width', sh.customWidth, unit, { length: true }, (v) => setSheet({ customWidth: v }), rerender)
+    numberRow(sheetSec, 'Height', sh.customHeight, unit, { length: true }, (v) => setSheet({ customHeight: v }), rerender)
+  }
+  numberRow(sheetSec, 'Margin', sh.margin, unit, { length: true }, (v) => setSheet({ margin: v }), rerender)
+  numberRow(sheetSec, 'Gap', sh.gap, unit, { length: true }, (v) => setSheet({ gap: v }), rerender)
+  // Count: empty means as many as fit.
+  const count = document.createElement('input')
+  count.type = 'number'
+  count.id = 'sheet-count'
+  count.min = '1'
+  count.step = '1'
+  count.placeholder = 'As many as fit'
+  count.value = sh.count === null ? '' : String(sh.count)
+  count.addEventListener('change', () => {
+    if (count.value.trim() === '') return setSheet({ count: null })
+    const v = count.valueAsNumber
+    if (!Number.isFinite(v)) return rerender()
+    setSheet({ count: v })
+  })
+  row(sheetSec, 'Count', count)
+  const summary = sheetSummary(d, sh)
+  const note = document.createElement('p')
+  note.className = 'sheet-summary' + (summary.fits ? '' : ' error')
+  note.textContent = summary.text
+  sheetSec.append(note)
 
   // Save.
   const save = section(root, 'Save')

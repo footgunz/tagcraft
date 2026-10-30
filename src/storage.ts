@@ -1,4 +1,5 @@
 import { PRESETS, normalizeDesign, type Design } from './design'
+import { normalizeSheet, type Sheet } from './sheet'
 
 export interface Store {
   getItem(k: string): string | null
@@ -14,10 +15,13 @@ export interface DesignStorage {
   remove(name: string): void
   loadCurrent(): Design | null
   saveCurrent(d: Design): void
+  loadSheet(): Sheet | null
+  saveSheet(s: Sheet): void
 }
 
 const DESIGNS_KEY = 'tagcraft:designs'
 const CURRENT_KEY = 'tagcraft:current'
+const SHEET_KEY = 'tagcraft:sheet'
 
 const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
@@ -60,6 +64,25 @@ export function createStorage(store: Store | null): DesignStorage {
     }
   }
 
+  const readJson = (key: string): unknown => {
+    if (!store) return null
+    try {
+      const raw = store.getItem(key)
+      return raw === null ? null : JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+
+  const writeJson = (key: string, v: unknown): void => {
+    if (!store) return
+    try {
+      store.setItem(key, JSON.stringify(v))
+    } catch {
+      /* ignore */
+    }
+  }
+
   return {
     available: store !== null,
     listSaved: readSaved,
@@ -79,22 +102,15 @@ export function createStorage(store: Store | null): DesignStorage {
       writeSaved(readSaved().filter((x) => !sameName(x.name, name)))
     },
     loadCurrent() {
-      if (!store) return null
-      try {
-        const raw = store.getItem(CURRENT_KEY)
-        if (raw === null) return null
-        return normalizeDesign(JSON.parse(raw))
-      } catch {
-        return null
-      }
+      const v = readJson(CURRENT_KEY)
+      return v === null ? null : normalizeDesign(v)
     },
-    saveCurrent(d) {
-      if (!store) return
-      try {
-        store.setItem(CURRENT_KEY, JSON.stringify(d))
-      } catch {
-        /* ignore */
-      }
+    saveCurrent: (d) => writeJson(CURRENT_KEY, d),
+    // Sheet settings are about the paper, not the tag, so they're kept apart from designs.
+    loadSheet() {
+      const v = readJson(SHEET_KEY)
+      return v === null ? null : normalizeSheet(v)
     },
+    saveSheet: (s) => writeJson(SHEET_KEY, s),
   }
 }
