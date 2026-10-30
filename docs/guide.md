@@ -62,8 +62,8 @@ For a shape no setting can make, press **Edit points…**. The outline (not the 
 
 - Once a design has edited points, the shape settings are disabled for it. **Width** and **Height** still scale the edited shape, and the hole stays editable.
 - **Reset to shape** throws the point edits away and goes back to the shape settings.
-- The hole stays on the centerline of the edited outline's bounding box and slides along it as before.
-- Point edits are never blocked. If the outline comes closer than 1/8" to the hole, or crosses it, the status line shows a warning and the hole is highlighted. You can still save and export, so check the preview before you cut.
+- The hole stays on the centerline of the edited outline's bounding box and slides along it as before. Moving or resizing the hole, or changing **Width** or **Height**, still keeps the 1/8" wall.
+- Point edits are never blocked. If dragging a point brings the outline closer than 1/8" to the hole, or across it, the hole stays where it is, the status line shows a warning and the hole is highlighted. You can still save and export, so check the preview before you cut.
 
 ## 6. Save your design
 

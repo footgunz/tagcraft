@@ -11,7 +11,7 @@ Cardstock tips:
 
 - Use a light-grip mat, and peel the mat away from the paper, not the paper from the mat, so the tag doesn't curl.
 - Heavier cardstock holds a hanging tag better. Try a test cut of a tag on scrap first.
-- Keep at least 1/8" of material around the hole (Tagcraft enforces this unless you have edited points). A tag with a thin wall can tear when the gift is carried.
+- Keep at least 1/8" of material around the hole (Tagcraft enforces this whenever you change the hole or the size; dragging points only warns). A tag with a thin wall can tear when the gift is carried.
 - A hole of about 1/4" fits most ribbon and twine. Make it larger for thick string.
 - For sturdier tags, cut two and glue them back to back.
 

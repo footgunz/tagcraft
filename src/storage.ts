@@ -5,10 +5,12 @@ export interface Store {
   setItem(k: string, v: string): void
 }
 
+export type SaveResult = 'ok' | 'invalid-name' | 'write-failed'
+
 export interface DesignStorage {
   available: boolean
   listSaved(): Design[]
-  save(d: Design): boolean
+  save(d: Design): SaveResult
   remove(name: string): void
   loadCurrent(): Design | null
   saveCurrent(d: Design): void
@@ -62,15 +64,15 @@ export function createStorage(store: Store | null): DesignStorage {
     available: store !== null,
     listSaved: readSaved,
     save(d) {
-      if (!store) return false
       const name = d.name.trim()
-      if (!name || PRESETS.some((p) => sameName(p.name, name))) return false
+      if (!name || PRESETS.some((p) => sameName(p.name, name))) return 'invalid-name'
+      if (!store) return 'write-failed'
       const entry = { ...d, name }
       const list = readSaved()
       const i = list.findIndex((x) => sameName(x.name, name))
       if (i >= 0) list[i] = entry
       else list.push(entry)
-      return writeSaved(list)
+      return writeSaved(list) ? 'ok' : 'write-failed'
     },
     remove(name) {
       if (!store) return

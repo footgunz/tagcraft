@@ -1,5 +1,5 @@
 import { circle, flatten, type Contour, type Pt } from './contour'
-import { MIN_WALL_MM, type Design } from './design'
+import { MIN_WALL_MM, RANGES, normalizeDesign, type Design } from './design'
 import { buildOutline, holeAxisOf } from './shapes'
 
 const TOL = 1e-6
@@ -44,10 +44,16 @@ export function holeWallOk(d: Design): boolean {
   return clearance(flatten(buildOutline(d)), holeCenter(d)) >= needed(d.hole.diameter)
 }
 
-export function clampHole(d: Design): { design: Design; adjusted: boolean } {
-  if (d.points) return { design: d, adjusted: false }
+/** Keeps the hole inside the outline with the minimum wall, for both shape-built and edited outlines. */
+export function clampHole(input: Design): { design: Design; adjusted: boolean } {
+  // Bad numbers would never reach MIN_DIAMETER in the scan below.
+  const h = input.hole
+  const dia = Math.min(RANGES.diameter.max, Number.isFinite(h.diameter) ? h.diameter : MIN_DIAMETER)
+  const off = Number.isFinite(h.offset) ? h.offset : 0
+  const repaired = dia !== h.diameter || off !== h.offset
+  const d = repaired ? { ...input, hole: { diameter: dia, offset: off } } : input
   const outline = flatten(buildOutline(d))
-  if (clearance(outline, holeCenter(d)) >= needed(d.hole.diameter)) return { design: d, adjusted: false }
+  if (clearance(outline, holeCenter(d)) >= needed(d.hole.diameter)) return { design: d, adjusted: repaired }
 
   const axisLen = holeAxisOf(d.shape.kind) === 'horizontal' ? d.width : d.height
   const steps = Math.floor(axisLen / STEP + 1e-9)
@@ -80,6 +86,15 @@ export function clampHole(d: Design): { design: Design; adjusted: boolean } {
   let bestI = 0
   for (let i = 1; i < clear.length; i++) if (clear[i] > clear[bestI]) bestI = i
   return withHole(MIN_DIAMETER, offsets[bestI])
+}
+
+/**
+ * Repairs a committed design and keeps the hole wall. `clamp: false` is for outline (node)
+ * edits, which are never blocked: the hole stays put and the caller warns instead.
+ */
+export function settleDesign(next: unknown, { clamp = true }: { clamp?: boolean } = {}): { design: Design; adjusted: boolean } {
+  const d = normalizeDesign(next)
+  return clamp ? clampHole(d) : { design: d, adjusted: false }
 }
 
 export function holeContour(d: Design): Contour {

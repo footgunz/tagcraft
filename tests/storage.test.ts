@@ -28,9 +28,9 @@ describe('storage', () => {
   })
 
   it('saves, lists, overwrites by name and removes', () => {
-    expect(s.save({ ...PRESETS[0], name: 'A' })).toBe(true)
+    expect(s.save({ ...PRESETS[0], name: 'A' })).toBe('ok')
     expect(s.listSaved()).toHaveLength(1)
-    expect(s.save({ ...PRESETS[0], name: 'A', width: 50 })).toBe(true)
+    expect(s.save({ ...PRESETS[0], name: 'A', width: 50 })).toBe('ok')
     const list = s.listSaved()
     expect(list).toHaveLength(1)
     expect(list[0].width).toBe(50)
@@ -39,8 +39,14 @@ describe('storage', () => {
   })
 
   it('rejects empty and preset names', () => {
-    expect(s.save({ ...PRESETS[0], name: '  ' })).toBe(false)
-    expect(s.save({ ...PRESETS[0], name: 'gift TAG' })).toBe(false)
+    expect(s.save({ ...PRESETS[0], name: '  ' })).toBe('invalid-name')
+    expect(s.save({ ...PRESETS[0], name: 'gift TAG' })).toBe('invalid-name')
+  })
+
+  it('reports a failed write separately from a bad name', () => {
+    const full = createStorage({ getItem: () => null, setItem: () => { throw new Error('QuotaExceededError') } })
+    expect(full.save({ ...PRESETS[0], name: 'A' })).toBe('write-failed')
+    expect(full.save({ ...PRESETS[0], name: 'Gift tag' })).toBe('invalid-name')
   })
 
   it('overwrites case-insensitively and trims', () => {
@@ -70,7 +76,7 @@ describe('storage', () => {
 
   it('throwing store degrades to no-ops', () => {
     const t = createStorage(throwingStore)
-    expect(() => t.save({ ...PRESETS[0], name: 'Y' })).not.toThrow()
+    expect(t.save({ ...PRESETS[0], name: 'Y' })).toBe('write-failed')
     expect(t.listSaved()).toEqual([])
     expect(t.loadCurrent()).toBeNull()
     expect(() => t.saveCurrent(PRESETS[0])).not.toThrow()
@@ -80,7 +86,7 @@ describe('storage', () => {
   it('null store is unavailable', () => {
     const n = createStorage(null)
     expect(n.available).toBe(false)
-    expect(n.save({ ...PRESETS[0], name: 'Z' })).toBe(false)
+    expect(n.save({ ...PRESETS[0], name: 'Z' })).toBe('write-failed')
     expect(n.listSaved()).toEqual([])
     expect(n.loadCurrent()).toBeNull()
   })

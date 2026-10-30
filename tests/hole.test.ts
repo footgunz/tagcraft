@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeContour } from '../src/contour'
 import { PRESETS, normalizeDesign } from '../src/design'
-import { clampHole, clearance, holeWallOk } from '../src/hole'
+import { clampHole, clearance, holeWallOk, settleDesign } from '../src/hole'
 import { buildOutline } from '../src/shapes'
 
 describe('hole', () => {
@@ -38,11 +38,41 @@ describe('hole', () => {
     expect(holeWallOk(design)).toBe(true)
     expect(design.hole.offset).toBeCloseTo(3.7)
   })
-  it('edited outlines are never clamped', () => {
-    const d = { ...PRESETS[0], hole: { diameter: 6.35, offset: 0 },
-      points: normalizeContour(buildOutline(PRESETS[0]), 76.2, 38.1) }
-    expect(clampHole(d).adjusted).toBe(false)
-    expect(holeWallOk(d)).toBe(false)
+  const edited = (hole: { diameter: number; offset: number }) => ({
+    ...PRESETS[0],
+    hole,
+    points: normalizeContour(buildOutline(PRESETS[0]), 76.2, 38.1),
+  })
+  it('a hole edit on an edited outline is clamped', () => {
+    const { design, adjusted } = settleDesign(edited({ diameter: 6.35, offset: 0 }))
+    expect(adjusted).toBe(true)
+    expect(holeWallOk(design)).toBe(true)
+    expect(design.points).not.toBeNull()
+  })
+  it('a node-edit commit leaves the hole and warns', () => {
+    const d = edited({ diameter: 6.35, offset: 0 })
+    const { design, adjusted } = settleDesign(d, { clamp: false })
+    expect(adjusted).toBe(false)
+    expect(design.hole).toEqual(d.hole)
+    expect(holeWallOk(design)).toBe(false)
+  })
+  it.each([
+    ['NaN', NaN],
+    ['Infinity', Infinity],
+    ['1e9', 1e9],
+  ])('a %s diameter returns promptly with a valid hole', (_, diameter) => {
+    const t = performance.now()
+    const { design } = clampHole({ ...PRESETS[0], hole: { diameter, offset: 8.89 } })
+    expect(performance.now() - t).toBeLessThan(1000)
+    expect(Number.isFinite(design.hole.diameter)).toBe(true)
+    expect(design.hole.diameter).toBeLessThanOrEqual(25.4)
+    expect(holeWallOk(design)).toBe(true)
+  })
+  it('a non-finite offset becomes 0 before clamping', () => {
+    const { design } = clampHole({ ...PRESETS[0], hole: { diameter: 6.35, offset: NaN } })
+    expect(Number.isFinite(design.hole.offset)).toBe(true)
+    expect(holeWallOk(design)).toBe(true)
+    expect(design.hole.offset).toBeLessThan(12)
   })
   it('clearance is negative outside', () => {
     const sq = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }]

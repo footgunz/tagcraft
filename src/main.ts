@@ -1,7 +1,7 @@
 import './style.css'
 import { normalizeContour, type Contour } from './contour'
-import { PRESETS, normalizeDesign, type Design, type Hole } from './design'
-import { clampHole, holeWallOk } from './hole'
+import { PRESETS, type Design, type Hole } from './design'
+import { holeWallOk, settleDesign } from './hole'
 import { applyPointEdit, buildOutline } from './shapes'
 import { renderPanel, syncHoleFields, type AppState, type PanelActions } from './panel'
 import { renderPreview, type PreviewActions } from './preview'
@@ -33,9 +33,12 @@ function render() {
   renderStatus()
 }
 
-/** Every committed design change goes through here: repair, keep the hole wall, report, save. */
-function commit(next: Design) {
-  const { design, adjusted } = clampHole(normalizeDesign(next))
+/**
+ * Every committed design change goes through here: repair, keep the hole wall, report, save.
+ * Outline (node) edits pass `clamp: false`: they are never blocked and only warn.
+ */
+function commit(next: Design, opts: { clamp?: boolean } = {}) {
+  const { design, adjusted } = settleDesign(next, opts)
   state.design = design
   if (!design.points) state.editing = false
   if (!holeWallOk(design)) state.status = 'Warning: the outline is closer than 1/8" to the hole'
@@ -72,12 +75,15 @@ const panelActions: PanelActions = {
   },
   saveAs(name) {
     const trimmed = name.trim()
-    if (!storage.available) {
+    const result = storage.available ? storage.save({ ...state.design, name: trimmed }) : null
+    if (result === null) {
       state.status = STORAGE_MSG
-    } else if (storage.save({ ...state.design, name: trimmed })) {
+    } else if (result === 'ok') {
       state.design = { ...state.design, name: trimmed }
       state.status = 'Saved'
       storage.saveCurrent(state.design)
+    } else if (result === 'write-failed') {
+      state.status = "Couldn't save: browser storage is full or unavailable"
     } else {
       state.status = "Enter a name that isn't a built-in preset"
     }
@@ -100,7 +106,7 @@ const previewActions: PreviewActions = {
   // `outline` is the edited outline in mm; applyPointEdit re-fits width/height to it.
   setPoints(outline: Contour, final: boolean) {
     const next = applyPointEdit(state.design, outline)
-    if (final) return commit(next)
+    if (final) return commit(next, { clamp: false })
     state.design = next
     renderPreview(previewEl, state, previewActions)
     syncHoleFields(controlsEl, state)
