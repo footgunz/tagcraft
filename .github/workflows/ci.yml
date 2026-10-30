@@ -1,5 +1,5 @@
 # Runs on every pull request and on pushes to main.
-# The "test" and "build" jobs are required status checks for merging PRs.
+# The "test", "build" and "e2e" jobs are meant to be required status checks for merging PRs.
 name: CI
 
 on:
@@ -38,3 +38,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  # Browser smoke tests against the built single-file app.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+      - name: Keep traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
