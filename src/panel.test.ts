@@ -72,6 +72,6 @@ describe('versionLink', () => {
     expect(versionLink('v0.0.4')).toEqual({ text: 'v0.0.4', href: 'https://github.com/footgunz/tagcraft/releases/tag/v0.0.4' })
   })
   it('shows other builds as plain text', () => {
-    for (const v of ['v0.0.3-3-gbdac605', 'v0.0.3-dirty', 'bdac605', 'dev']) expect(versionLink(v).href).toBeNull()
+    for (const v of ['v0.0.3-3-gbdac605', 'bdac605', 'dev']) expect(versionLink(v).href).toBeNull()
   })
 })

@@ -16,13 +16,13 @@ function renameOutput(name: string): Plugin {
 
 /**
  * The version shown in the app: the release tag when the release workflow sets
- * TAGCRAFT_VERSION, otherwise `git describe` (e.g. v0.0.3-3-gbdac605, or with
- * -dirty for uncommitted changes), otherwise "dev".
+ * TAGCRAFT_VERSION, otherwise `git describe` (e.g. v0.0.3-3-gbdac605), otherwise
+ * "dev". No --dirty suffix: the label is shown to people, and "dirty" reads badly.
  */
 function appVersion(): string {
   if (process.env.TAGCRAFT_VERSION) return process.env.TAGCRAFT_VERSION
   try {
-    return execSync('git describe --tags --always --dirty', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'
+    return execSync('git describe --tags --always', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev'
   } catch {
     return 'dev'
   }
