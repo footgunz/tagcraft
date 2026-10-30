@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRESETS, normalizeDesign } from './design'
-import { presetEntries, switchKind } from './panel'
+import { presetEntries, sheetSummary, switchKind } from './panel'
+import { DEFAULT_SHEET } from './sheet'
 import { naturalAspect } from './shapes'
 
 describe('switchKind', () => {
@@ -30,5 +31,22 @@ describe('presetEntries', () => {
   })
   it('drops saved entries that collide with a built-in name', () => {
     expect(presetEntries([{ ...saved, name: PRESETS[0].name }], PRESETS[0])).toHaveLength(PRESETS.length)
+  })
+})
+
+describe('sheetSummary', () => {
+  it('counts what fits, by orientation', () => {
+    expect(sheetSummary(PRESETS[0], DEFAULT_SHEET)).toEqual({ text: '15 tags fit · 15 turned', fits: true })
+  })
+  it('says how many of the max a count cuts', () => {
+    expect(sheetSummary(PRESETS[0], { ...DEFAULT_SHEET, count: 4 }).text).toBe('Cutting 4 of 15 · 4 turned')
+  })
+  it('names both orientations in a mixed layout', () => {
+    const narrow = { ...DEFAULT_SHEET, size: 'custom' as const, customWidth: 80, customHeight: 279.4, margin: 0 }
+    expect(sheetSummary(PRESETS[0], narrow).text).toBe('7 tags fit · 1 upright, 6 turned')
+  })
+  it('reports when nothing fits', () => {
+    const tiny = { ...DEFAULT_SHEET, size: 'custom' as const, customWidth: 50, customHeight: 50 }
+    expect(sheetSummary(PRESETS[0], tiny).fits).toBe(false)
   })
 })

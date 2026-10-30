@@ -50,18 +50,23 @@ function placer(d: Design, p: Placement): (q: Pt) => Pt {
   return p.rotation === 90 ? (q) => ({ x: p.x + d.height - q.y, y: p.y + q.x }) : (q) => ({ x: p.x + q.x, y: p.y + q.y })
 }
 
+/** Path data for each tag on the sheet, in sheet mm, with positions and turns written in. */
+export function sheetTagPathData(d: Design, sheet: Sheet): string[] {
+  const outline = buildOutline(d)
+  const hole = holeContour(d)
+  return layoutSheet(d, sheet).map((p) => {
+    const place = (c: Contour) => contourToPathData(mapContour(c, placer(d, p)))
+    return `${place(outline)} ${place(hole)}`
+  })
+}
+
 /**
  * The whole sheet at true size, one evenodd path per tag. Positions and rotations
  * are written into the coordinates (no transforms), so every cutter reads them.
  */
 export function sheetToSvg(d: Design, sheet: Sheet, unit: Unit): string {
   const { width, height } = sheetDimensions(sheet)
-  const outline = buildOutline(d)
-  const hole = holeContour(d)
-  const paths = layoutSheet(d, sheet).map((p, i) => {
-    const place = (c: Contour) => contourToPathData(mapContour(c, placer(d, p)))
-    return pathElement(`tag-${i + 1}`, `${place(outline)} ${place(hole)}`)
-  })
+  const paths = sheetTagPathData(d, sheet).map((data, i) => pathElement(`tag-${i + 1}`, data))
   return svgDocument(width, height, unit, paths)
 }
 
