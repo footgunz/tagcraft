@@ -51,6 +51,14 @@ npm test
 
 Runs the geometry, hole, storage and SVG export tests with [Vitest](https://vitest.dev/).
 
+```bash
+npx playwright install chromium
+npm run build
+npm run test:e2e
+```
+
+Runs browser smoke tests with [Playwright](https://playwright.dev/) against the built `dist/tagcraft.html`, opened from disk. Install Chromium once; rebuild before each run so the tests see your changes.
+
 ## How it works
 
 | File | Role |
