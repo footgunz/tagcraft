@@ -43,6 +43,8 @@ async function open(browser: Browser, viewport: { width: number; height: number 
   })
   await page.goto(URL)
   await page.waitForFunction(() => !!document.querySelector('#preview svg'))
+  // Leave the version label empty, so the images don't show whatever build recorded them.
+  await page.addStyleTag({ content: '.brand .version { visibility: hidden }' })
   return page
 }
 
