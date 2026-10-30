@@ -532,3 +532,30 @@ button.preset.active {
 #preview .bz-hit {
   cursor: move;
 }
+
+.preset-item {
+  position: relative;
+}
+
+.preset-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 0 5px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+}
+
+button.remove.confirm {
+  background: #fff;
+  border-color: #b3261e;
+  color: #b3261e;
+}

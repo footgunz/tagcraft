@@ -11,7 +11,7 @@ import type { Unit } from './units'
 
 const storage = createStorage(defaultStore())
 
-const state: AppState = { design: PRESETS[0], unit: 'in', editing: false, status: '' }
+const state: AppState = { design: PRESETS[0], unit: 'in', editing: false, status: '', saved: [], canSave: storage.available }
 
 const controlsEl = document.getElementById('controls')!
 const previewEl = document.getElementById('preview')!
@@ -27,6 +27,7 @@ function renderStatus() {
 }
 
 function render() {
+  state.saved = storage.listSaved()
   renderPanel(controlsEl, state, panelActions)
   renderPreview(previewEl, state, previewActions)
   renderStatus()
@@ -70,7 +71,16 @@ const panelActions: PanelActions = {
     commit({ ...state.design, points: null })
   },
   saveAs(name) {
-    state.status = storage.save({ ...state.design, name }) ? `Saved "${name.trim()}"` : 'Could not save this design'
+    const trimmed = name.trim()
+    if (!storage.available) {
+      state.status = STORAGE_MSG
+    } else if (storage.save({ ...state.design, name: trimmed })) {
+      state.design = { ...state.design, name: trimmed }
+      state.status = 'Saved'
+      storage.saveCurrent(state.design)
+    } else {
+      state.status = "Enter a name that isn't a built-in preset"
+    }
     render()
   },
   removeSaved(name) {

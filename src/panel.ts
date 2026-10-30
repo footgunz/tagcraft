@@ -10,6 +10,10 @@ export interface AppState {
   unit: Unit
   editing: boolean
   status: string
+  /** Saved designs (from storage), shown after the built-ins. */
+  saved: Design[]
+  /** False when browser storage is unavailable (saving disabled). */
+  canSave: boolean
 }
 
 export interface PanelActions {
@@ -21,6 +25,34 @@ export interface PanelActions {
   resetPoints(): void
   saveAs(name: string): void
   removeSaved(name: string): void
+}
+
+/** Trimmed, case-insensitive name comparison (matches storage's rule). */
+export function sameName(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
+export interface PresetEntry {
+  design: Design
+  saved: boolean
+  active: boolean
+}
+
+/** Built-ins first, then saved designs; the active one is matched by exact name. */
+export function presetEntries(saved: Design[], current: Design): PresetEntry[] {
+  const mk = (design: Design, isSaved: boolean) => ({ design, saved: isSaved, active: sameName(design.name, current.name) })
+  return [...PRESETS.map((p) => mk(p, false)), ...saved.filter((s) => !PRESETS.some((p) => sameName(p.name, s.name))).map((s) => mk(s, true))]
+}
+
+// Two-click remove confirmation. Lives at module level so it survives panel re-renders;
+// the timer always acts on the latest render callback and re-checks the name.
+let pendingRemove: { name: string; timer: ReturnType<typeof setTimeout> } | null = null
+let latestRerender: (() => void) | null = null
+const CONFIRM_MS = 3000
+
+function clearPending() {
+  if (pendingRemove) clearTimeout(pendingRemove.timer)
+  pendingRemove = null
 }
 
 const SOURCE_URL = 'https://github.com/footgunz/tagcraft'
@@ -181,18 +213,52 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
     `<a class="source-link" href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">Source code</a>`
   root.append(head)
 
-  // Presets (built-ins; saved designs are added by the saved-designs task).
+  // Presets: built-ins, then saved designs (with a remove control).
+  latestRerender = rerender
   const presets = section(root, 'Preset')
   const grid = document.createElement('div')
   grid.className = 'presets'
-  for (const p of PRESETS) {
+  for (const e of presetEntries(state.saved, d)) {
+    const p = e.design
+    const item = document.createElement('div')
+    item.className = 'preset-item'
     const b = document.createElement('button')
     b.type = 'button'
-    b.className = 'preset' + (p.name === d.name ? ' active' : '')
-    b.title = `Load the ${p.name} preset`
-    b.append(thumbnail(p), p.name)
+    b.className = 'preset' + (e.active ? ' active' : '')
+    b.title = e.saved ? `Load ${p.name}` : `Load the ${p.name} preset`
+    const label = document.createElement('span')
+    label.className = 'preset-name'
+    label.textContent = p.name
+    b.append(thumbnail(p), label)
     b.addEventListener('click', () => actions.loadDesign(p))
-    grid.append(b)
+    item.append(b)
+    if (e.saved) {
+      const x = document.createElement('button')
+      x.type = 'button'
+      const confirming = pendingRemove !== null && sameName(pendingRemove.name, p.name)
+      x.className = 'remove' + (confirming ? ' confirm' : '')
+      x.textContent = confirming ? 'Remove?' : '\u00d7'
+      x.title = confirming ? `Click again to remove ${p.name}` : `Remove ${p.name}`
+      x.setAttribute('aria-label', confirming ? `Confirm removing ${p.name}` : `Remove ${p.name}`)
+      x.addEventListener('click', () => {
+        if (pendingRemove && sameName(pendingRemove.name, p.name)) {
+          clearPending()
+          actions.removeSaved(p.name)
+          return
+        }
+        clearPending()
+        const name = p.name
+        const timer = setTimeout(() => {
+          if (pendingRemove?.timer !== timer) return
+          pendingRemove = null
+          latestRerender?.()
+        }, CONFIRM_MS)
+        pendingRemove = { name, timer }
+        rerender()
+      })
+      item.append(x)
+    }
+    grid.append(item)
   }
   presets.append(grid)
 
@@ -295,6 +361,26 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
     actions.update((x) => ({ ...x, hole: { ...x.hole, diameter: v } })), rerender)
   numberRow(hole, holeLabels(s.kind).offset, d.hole.offset, unit, { length: true, id: 'hole-offset' }, (v) =>
     actions.update((x) => ({ ...x, hole: { ...x.hole, offset: v } })), rerender)
+
+  // Save.
+  const save = section(root, 'Save')
+  const nameInput = document.createElement('input')
+  nameInput.type = 'text'
+  nameInput.id = 'save-name'
+  nameInput.value = d.name
+  nameInput.maxLength = 60
+  nameInput.placeholder = 'Design name'
+  const saveBtn = document.createElement('button')
+  saveBtn.type = 'button'
+  saveBtn.className = 'action'
+  saveBtn.textContent = 'Save design'
+  saveBtn.disabled = !state.canSave
+  saveBtn.title = state.canSave ? 'Save this design in the preset grid' : 'Browser storage is unavailable'
+  const doSave = () => state.canSave && actions.saveAs(nameInput.value)
+  saveBtn.addEventListener('click', doSave)
+  nameInput.addEventListener('keydown', (ev) => ev.key === 'Enter' && doSave())
+  row(save, 'Name', nameInput)
+  save.append(saveBtn)
 
   root.scrollTop = scroll
 }
