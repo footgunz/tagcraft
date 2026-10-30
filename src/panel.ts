@@ -110,9 +110,11 @@ export function sheetSummary(d: Design, sheet: Sheet): { text: string; fits: boo
   const max = layoutSheet(d, { ...sheet, count: null }).length
   if (max === 0) return { text: "The tag doesn't fit on this sheet, even turned", fits: false }
   const placed = layoutSheet(d, sheet)
-  const turned = placed.filter((p) => p.rotation === 90).length
-  const upright = placed.length - turned
-  const parts = [upright && `${upright} upright`, turned && `${turned} turned`].filter(Boolean).join(', ')
+  const count = (...rs: number[]) => placed.filter((p) => rs.includes(p.rotation)).length
+  const upright = count(0)
+  const flipped = count(180)
+  const turned = count(90, 270)
+  const parts = [upright && `${upright} upright`, flipped && `${flipped} flipped`, turned && `${turned} turned`].filter(Boolean).join(', ')
   const head = placed.length < max ? `Cutting ${placed.length} of ${max}` : `${max} ${max === 1 ? 'tag fits' : 'tags fit'}`
   return { text: `${head} · ${parts}`, fits: true }
 }

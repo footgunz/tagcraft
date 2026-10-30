@@ -108,13 +108,13 @@ Set up the paper in the panel's **Sheet** section, which appears while you're in
 | **Gap** | Space between neighbouring tags. Default 1/8". |
 | **Count** | Leave it empty for as many as fit, or type a smaller number to cut only that many. |
 
-The line under the settings says how many tags fit and how many are turned, for example **15 tags fit · 15 turned**, or **Cutting 4 of 15** when you set a count.
+The line under the settings says how many tags fit and how they sit (upright, turned on their side, or flipped upside down), for example **15 tags fit · 15 turned**, or **Cutting 4 of 15** when you set a count.
 
 How the tags are laid out:
 
 - Tags are turned 90° when that fits more. The gift tag fits 12 upright on Letter but 15 turned. Sometimes a mix of upright and turned tags fits best.
 - Tags are packed from the top-left corner, so the paper you don't use stays in one piece you can use again as a partial sheet. With a count, the first tags in reading order are kept.
-- The layout uses each tag's bounding box, so round and pointed shapes don't nest into each other yet.
+- Shapes nest when that fits more: rows are staggered so circles and hexagons sit in the gaps of the row above, and stars and triangles are turned alternate ways so their points interlock. A 1" star fits 83 to a Letter sheet this way, against 63 in a plain grid. Tags always stay at least the gap apart, measured between their actual outlines.
 
 In Sheet view the toolbar buttons export the sheet: **Download sheet SVG** saves a file named for the design, sheet and count, such as `tagcraft-gift-tag-letter-15up.svg`, and **Copy sheet SVG** copies it. The SVG is the sheet at true size with each tag as its own path, hole cut out. There's no sheet outline in the file, so nothing extra gets cut. If the tag doesn't fit on the sheet at all, even turned, the summary says so and the buttons are disabled.
 

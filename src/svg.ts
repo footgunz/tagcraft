@@ -1,6 +1,7 @@
 import { contourToPathData, mapContour, type Contour, type Pt } from './contour'
 import type { Design } from './design'
 import { holeContour } from './hole'
+import { orientPoint } from './nest'
 import { buildOutline } from './shapes'
 import { layoutSheet, sheetDimensions, type Placement, type Sheet } from './sheet'
 import { fromMm, type Unit } from './units'
@@ -45,9 +46,9 @@ export function designToSvg(d: Design, unit: Unit): string {
   return svgDocument(d.width, d.height, unit, [pathElement('tag', tagPathData(d))])
 }
 
-/** Moves a tag-space point into its slot on the sheet; a turned tag is rotated 90° clockwise. */
+/** Moves a tag-space point into its slot on the sheet, turned clockwise by the placement's rotation. */
 function placer(d: Design, p: Placement): (q: Pt) => Pt {
-  return p.rotation === 90 ? (q) => ({ x: p.x + d.height - q.y, y: p.y + q.x }) : (q) => ({ x: p.x + q.x, y: p.y + q.y })
+  return (q) => orientPoint(d.width, d.height, p.rotation, p.x, p.y, q)
 }
 
 /** Path data for each tag on the sheet, in sheet mm, with positions and turns written in. */
