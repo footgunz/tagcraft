@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { contourBounds, flatten, normalizeContour } from '../src/contour'
+import { contourBounds, flatten, moveNode, normalizeContour } from '../src/contour'
 import { normalizeDesign, PRESETS } from '../src/design'
-import { buildOutline, holeAxisOf } from '../src/shapes'
+import { applyPointEdit, buildOutline, holeAxisOf } from '../src/shapes'
 
 const gift = PRESETS[0]
 
@@ -55,5 +55,14 @@ describe('shapes', () => {
     const pts = normalizeContour(buildOutline(gift), gift.width, gift.height)
     const b = contourBounds(buildOutline({ ...gift, width: 100, points: pts }))
     expect(b.maxX).toBeCloseTo(100)
+  })
+  it('dragging a node outside the box grows the tag', () => {
+    const base = { ...PRESETS[1], shape: { ...PRESETS[1].shape, rounding: 0 } as any }
+    const d = { ...base, points: normalizeContour(buildOutline(base), base.width, base.height) }
+    const mm = moveNode(buildOutline(d), 1, 'p', { x: 90, y: 0 })
+    const next = applyPointEdit(d, mm)
+    expect(next.width).toBeCloseTo(90)
+    expect(contourBounds(buildOutline(next)).maxX).toBeCloseTo(90)
+    expect(contourBounds(buildOutline(next)).minX).toBeCloseTo(0)
   })
 })

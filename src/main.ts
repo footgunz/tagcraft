@@ -1,7 +1,8 @@
 import './style.css'
-import type { Contour } from './contour'
+import { normalizeContour, type Contour } from './contour'
 import { PRESETS, normalizeDesign, type Design, type Hole } from './design'
 import { clampHole, holeWallOk } from './hole'
+import { applyPointEdit, buildOutline } from './shapes'
 import { renderPanel, syncHoleFields, type AppState, type PanelActions } from './panel'
 import { renderPreview, type PreviewActions } from './preview'
 import { createStorage, defaultStore } from './storage'
@@ -35,6 +36,7 @@ function render() {
 function commit(next: Design) {
   const { design, adjusted } = clampHole(normalizeDesign(next))
   state.design = design
+  if (!design.points) state.editing = false
   if (!holeWallOk(design)) state.status = 'Warning: the outline is closer than 1/8" to the hole'
   else if (adjusted) state.status = 'Hole adjusted to keep a 1/8" wall'
   else state.status = storage.available ? '' : STORAGE_MSG
@@ -50,14 +52,23 @@ const panelActions: PanelActions = {
   },
   loadDesign: (d) => commit(d),
   startEditing() {
+    const d = state.design
     state.editing = true
-    render()
+    // Convert the current shape to editable nodes (once per design).
+    commit(
+      d.points
+        ? d
+        : { ...d, lockProportions: false, points: normalizeContour(buildOutline(d), d.width, d.height) },
+    )
   },
   stopEditing() {
     state.editing = false
     render()
   },
-  resetPoints: () => commit({ ...state.design, points: null }),
+  resetPoints() {
+    state.editing = false
+    commit({ ...state.design, points: null })
+  },
   saveAs(name) {
     state.status = storage.save({ ...state.design, name }) ? `Saved "${name.trim()}"` : 'Could not save this design'
     render()
@@ -76,10 +87,13 @@ const previewActions: PreviewActions = {
     renderPreview(previewEl, state, previewActions)
     syncHoleFields(controlsEl, state)
   },
-  setPoints(c: Contour, final: boolean) {
-    if (final) return commit({ ...state.design, points: c })
-    state.design = { ...state.design, points: c }
+  // `outline` is the edited outline in mm; applyPointEdit re-fits width/height to it.
+  setPoints(outline: Contour, final: boolean) {
+    const next = applyPointEdit(state.design, outline)
+    if (final) return commit(next)
+    state.design = next
     renderPreview(previewEl, state, previewActions)
+    syncHoleFields(controlsEl, state)
   },
 }
 

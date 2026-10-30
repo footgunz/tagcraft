@@ -145,7 +145,8 @@ export function normalizeDesign(input: unknown): Design {
   }
 
   const lock = typeof d.lockProportions === 'boolean' ? d.lockProportions : GIFT.lockProportions
-  if (lock && (shape.kind === 'polygon' || shape.kind === 'star' || shape.kind === 'ellipse')) {
+  const points = normalizeNodes(d.points)
+  if (lock && !points && (shape.kind === 'polygon' || shape.kind === 'star' || shape.kind === 'ellipse')) {
     height = width * naturalAspect(shape)
   }
   if (shape.kind === 'rectangle' || shape.kind === 'wavy') {
@@ -164,6 +165,6 @@ export function normalizeDesign(input: unknown): Design {
       diameter: range('diameter', h.diameter, HOLE.diameter),
       offset: range('offset', h.offset, HOLE.offset, Math.max(width, height)),
     },
-    points: normalizeNodes(d.points),
+    points,
   }
 }

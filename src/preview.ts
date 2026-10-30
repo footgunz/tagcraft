@@ -1,4 +1,4 @@
-import { contourBounds, type Contour } from './contour'
+import { contourBounds, moveNode, type Contour, type Pt } from './contour'
 import type { Design, Hole } from './design'
 import { holeCenter, holeWallOk } from './hole'
 import { buildOutline, holeAxisOf } from './shapes'
@@ -35,6 +35,7 @@ const live = new WeakMap<HTMLElement, Live>()
 type Drag =
   | { mode: 'move'; pointerId: number; grab: number }
   | { mode: 'resize'; pointerId: number }
+  | { mode: 'node'; pointerId: number; index: number; part: 'p' | 'hIn' | 'hOut'; dx: number; dy: number }
 const drags = new WeakMap<HTMLElement, Drag>()
 
 /** Pointer position in design (mm) coordinates, using the current svg's transform. */
@@ -66,7 +67,20 @@ function attach(root: HTMLElement) {
     const p = toDesign(root, e)
     if (!p) return
     const d = cur.state.design
-    const mode = target.getAttribute('data-drag') === 'resize' ? 'resize' : 'move'
+    const kind = target.getAttribute('data-drag')
+    if (kind === 'node') {
+      if (!cur.state.editing) return
+      const index = Number(target.getAttribute('data-index'))
+      const part = target.getAttribute('data-part') as 'p' | 'hIn' | 'hOut'
+      const at = buildOutline(d)[index]?.[part]
+      if (!at) return
+      // Remember where inside the dot it was grabbed so the node doesn't jump.
+      drags.set(root, { mode: 'node', pointerId: e.pointerId, index, part, dx: at.x - p.x, dy: at.y - p.y })
+      root.setPointerCapture(e.pointerId)
+      e.preventDefault()
+      return
+    }
+    const mode = kind === 'resize' ? 'resize' : 'move'
     const horizontal = holeAxisOf(d.shape.kind) === 'horizontal'
     const grab = mode === 'move' ? (horizontal ? p.x : p.y) - d.hole.offset : 0
     drags.set(root, { mode, pointerId: e.pointerId, grab } as Drag)
@@ -79,7 +93,10 @@ function attach(root: HTMLElement) {
     const drag = drags.get(root)
     if (!cur || !drag || drag.pointerId !== e.pointerId) return
     const p = toDesign(root, e)
-    if (p) cur.actions.setHole(holeFrom(cur.state.design, drag, p, drag.mode === 'move' ? drag.grab : 0), false)
+    if (p && drag.mode === 'node') {
+      const to: Pt = { x: p.x + drag.dx, y: p.y + drag.dy }
+      cur.actions.setPoints(moveNode(buildOutline(cur.state.design), drag.index, drag.part, to), false)
+    } else if (p) cur.actions.setHole(holeFrom(cur.state.design, drag, p, drag.mode === 'move' ? drag.grab : 0), false)
   })
   const end = (e: PointerEvent) => {
     const cur = live.get(root)
@@ -87,8 +104,9 @@ function attach(root: HTMLElement) {
     if (!cur || !drag || drag.pointerId !== e.pointerId) return
     drags.delete(root)
     if (root.hasPointerCapture(e.pointerId)) root.releasePointerCapture(e.pointerId)
-    // A cancelled gesture still commits the last shown hole so state and preview agree.
-    cur.actions.setHole(cur.state.design.hole, true)
+    // A cancelled gesture still commits the last shown state so state and preview agree.
+    if (drag.mode === 'node') cur.actions.setPoints(buildOutline(cur.state.design), true)
+    else cur.actions.setHole(cur.state.design.hole, true)
   }
   root.addEventListener('pointerup', end)
   root.addEventListener('pointercancel', end)
@@ -142,6 +160,41 @@ export function renderPreview(root: HTMLElement, state: AppState, actions: Previ
   const horizontal = holeAxisOf(d.shape.kind) === 'horizontal'
   const dot = horizontal ? { x: c.x + r, y: c.y } : { x: c.x, y: c.y + r }
   svg.append(el('circle', { class: ok ? 'handle' : 'handle warn', 'data-drag': 'resize', cx: dot.x, cy: dot.y, r: big * 0.016 }))
+
+  if (state.editing && d.points) {
+    const r = big * 0.014
+    const hitR = big * 0.028
+    const nodes = buildOutline(d)
+    const lines = el('g')
+    const handles = el('g')
+    const anchors = el('g')
+    nodes.forEach((n, index) => {
+      for (const part of ['hIn', 'hOut'] as const) {
+        const h = n[part]
+        if (Math.hypot(h.x - n.p.x, h.y - n.p.y) < 1e-6) continue
+        lines.append(el('line', { class: 'bz-line', x1: n.p.x, y1: n.p.y, x2: h.x, y2: h.y }))
+        handles.append(
+          el('circle', { class: 'bz-handle', cx: h.x, cy: h.y, r }),
+          el('circle', { class: 'hit bz-hit', 'data-drag': 'node', 'data-index': index, 'data-part': part, cx: h.x, cy: h.y, r: r * 1.3 }),
+        )
+      }
+      anchors.append(
+        el('rect', { class: 'bz-anchor', x: n.p.x - r, y: n.p.y - r, width: 2 * r, height: 2 * r }),
+        el('rect', {
+          class: 'hit bz-hit',
+          'data-drag': 'node',
+          'data-index': index,
+          'data-part': 'p',
+          x: n.p.x - hitR,
+          y: n.p.y - hitR,
+          width: 2 * hitR,
+          height: 2 * hitR,
+        }),
+      )
+    })
+    // Handles go last so they win over an anchor they overlap.
+    svg.append(lines, anchors, handles)
+  }
 
   root.replaceChildren(svg)
 }

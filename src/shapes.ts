@@ -1,12 +1,15 @@
 import {
   KAPPA,
+  contourBounds,
   denormalizeContour,
+  mapContour,
+  normalizeContour,
   roundedPolygon,
   type BezierNode,
   type Contour,
   type Pt,
 } from './contour'
-import type { Design, ShapeSettings } from './design'
+import { RANGES, type Design, type ShapeSettings } from './design'
 
 const EPS = 1e-6
 /** Control-handle length of a cosine half-wave, as a fraction of its length. */
@@ -151,4 +154,19 @@ export function buildOutline(d: Design): Contour {
       return roundedPolygon(rectanglePoints(w, h, 'square', 0), r)
     }
   }
+}
+
+const clampRange = (v: number, key: 'width' | 'height') => Math.min(RANGES[key].max, Math.max(RANGES[key].min, v))
+
+/**
+ * Stores an edited outline (mm) on the design. The contour is shifted so its bounds start at 0,0,
+ * width/height follow its bounds, and the points are normalized against those new bounds.
+ */
+export function applyPointEdit(d: Design, next: Contour): Design {
+  const b = contourBounds(next)
+  const width = clampRange(b.maxX - b.minX, 'width')
+  const height = clampRange(b.maxY - b.minY, 'height')
+  const shifted = mapContour(next, (p) => ({ x: p.x - b.minX, y: p.y - b.minY }))
+  // Proportions can't stay locked to a base shape once the outline is hand-edited.
+  return { ...d, width, height, lockProportions: false, points: normalizeContour(shifted, width, height) }
 }

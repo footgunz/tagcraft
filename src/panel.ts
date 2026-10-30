@@ -216,14 +216,14 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
   selectRow(shape, 'Base shape', KIND_LABELS, s.kind, (k) => actions.update((x) => switchKind(x, k)))
 
   const aspect = naturalAspect(s)
-  const locked = d.lockProportions && canLock(s.kind)
-  numberRow(shape, 'Width', d.width, unit, { length: true }, (v) => actions.update((x) => ({ ...x, width: v })), rerender)
+  const locked = d.lockProportions && canLock(s.kind) && !d.points
+  numberRow(shape, 'Width', d.width, unit, { length: true, id: 'shape-width' }, (v) => actions.update((x) => ({ ...x, width: v })), rerender)
   numberRow(
     shape,
     'Height',
     d.height,
     unit,
-    { length: true },
+    { length: true, id: 'shape-height' },
     // normalizeDesign derives height from width when locked, so derive the width here.
     (v) => actions.update((x) => (locked ? { ...x, width: v / aspect } : { ...x, height: v })),
     rerender,
@@ -263,6 +263,31 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
     case 'oval':
       break
   }
+
+  // Point editing: the shape settings are one-way disabled once points exist.
+  if (d.points) {
+    for (const c of shape.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select'))
+      if (c.id !== 'shape-width' && c.id !== 'shape-height') c.disabled = true
+  }
+  const edit = document.createElement('div')
+  edit.className = 'edit-actions'
+  const toggle = document.createElement('button')
+  toggle.type = 'button'
+  toggle.className = 'action' + (state.editing ? ' active' : '')
+  toggle.textContent = state.editing ? 'Done editing' : 'Edit points\u2026'
+  toggle.title = state.editing ? 'Stop editing points' : 'Edit the outline as bezier points'
+  toggle.addEventListener('click', () => (state.editing ? actions.stopEditing() : actions.startEditing()))
+  edit.append(toggle)
+  if (d.points) {
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.className = 'action'
+    reset.textContent = 'Reset to shape'
+    reset.title = 'Throw away point edits and return to the shape settings'
+    reset.addEventListener('click', () => actions.resetPoints())
+    edit.append(reset)
+  }
+  shape.append(edit)
 
   // Hole.
   const hole = section(root, 'Hole')
