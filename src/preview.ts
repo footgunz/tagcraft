@@ -2,7 +2,8 @@ import { contourBounds, moveNode, type Contour, type Pt } from './contour'
 import type { Design, Hole } from './design'
 import { holeCenter, holeWallOk } from './hole'
 import { buildOutline, holeAxisOf } from './shapes'
-import { tagPathData } from './svg'
+import { sheetDimensions } from './sheet'
+import { sheetTagPathData, tagPathData } from './svg'
 import { formatLength, type Unit } from './units'
 import type { AppState } from './panel'
 
@@ -119,12 +120,42 @@ function attach(root: HTMLElement) {
   root.addEventListener('pointercancel', end)
 }
 
+/** Read-only view of the whole sheet: paper, margin, and the tags in place. */
+function sheetPreview(state: AppState): SVGSVGElement {
+  const { width, height } = sheetDimensions(state.sheet)
+  const m = state.sheet.margin
+  const big = Math.max(width, height)
+  const pad = big * 0.06
+  const font = big * 0.022
+  const svg = el('svg', {
+    viewBox: `${-pad} ${-pad} ${width + 2 * pad} ${height + 2 * pad}`,
+    role: 'img',
+    'aria-label': `Sheet of ${state.design.name} tags`,
+  })
+  svg.append(el('rect', { class: 'sheet', x: 0, y: 0, width, height }))
+  if (m > 0) svg.append(el('rect', { class: 'margin', x: m, y: m, width: width - 2 * m, height: height - 2 * m }))
+  for (const data of sheetTagPathData(state.design, state.sheet)) svg.append(el('path', { class: 'tag', d: data, 'fill-rule': 'evenodd' }))
+  svg.append(
+    el('text', { class: 'dim', x: width / 2, y: height + pad * 0.65, 'text-anchor': 'middle', 'font-size': font }, formatLength(width, state.unit)),
+  )
+  const lx = -pad * 0.4
+  svg.append(
+    el(
+      'text',
+      { class: 'dim', x: lx, y: height / 2, 'text-anchor': 'middle', 'font-size': font, transform: `rotate(-90 ${lx} ${height / 2})` },
+      formatLength(height, state.unit),
+    ),
+  )
+  return svg
+}
+
 export function renderPreview(root: HTMLElement, state: AppState, actions: PreviewActions): void {
   live.set(root, { state, actions })
   if (!root.dataset.bound) {
     root.dataset.bound = '1'
     attach(root)
   }
+  if (state.view === 'sheet') return root.replaceChildren(sheetPreview(state))
   const d = state.design
   const unit: Unit = state.unit
   const b = contourBounds(buildOutline(d))

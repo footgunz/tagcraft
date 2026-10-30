@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { PRESETS } from '../src/design'
+import { DEFAULT_SHEET } from '../src/sheet'
 import { createStorage, defaultStore, type DesignStorage, type Store } from '../src/storage'
 
 function memStore(): Store {
@@ -62,6 +63,21 @@ describe('storage', () => {
     expect(s.loadCurrent()?.name).toBe('Cur')
   })
 
+  it('round-trips sheet settings, apart from designs', () => {
+    expect(s.loadSheet()).toBeNull()
+    s.saveSheet({ ...DEFAULT_SHEET, size: 'a4', count: 6 })
+    expect(s.loadSheet()).toMatchObject({ size: 'a4', count: 6 })
+    expect(s.loadCurrent()).toBeNull()
+    expect(s.listSaved()).toEqual([])
+  })
+
+  it('repairs stored sheet settings', () => {
+    mem.setItem('tagcraft:sheet', JSON.stringify({ size: 'poster', margin: -1 }))
+    expect(s.loadSheet()).toMatchObject({ size: 'letter', margin: 0 })
+    mem.setItem('tagcraft:sheet', '{nope')
+    expect(s.loadSheet()).toBeNull()
+  })
+
   it('survives corrupt JSON', () => {
     mem.setItem('tagcraft:designs', '{nope')
     expect(s.listSaved()).toEqual([])
@@ -80,6 +96,8 @@ describe('storage', () => {
     expect(t.listSaved()).toEqual([])
     expect(t.loadCurrent()).toBeNull()
     expect(() => t.saveCurrent(PRESETS[0])).not.toThrow()
+    expect(t.loadSheet()).toBeNull()
+    expect(() => t.saveSheet(DEFAULT_SHEET)).not.toThrow()
     expect(() => t.remove('Y')).not.toThrow()
   })
 

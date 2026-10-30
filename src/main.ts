@@ -5,31 +5,62 @@ import { holeWallOk, settleDesign } from './hole'
 import { applyPointEdit, buildOutline } from './shapes'
 import { renderPanel, syncHoleFields, type AppState, type PanelActions } from './panel'
 import { renderPreview, type PreviewActions } from './preview'
+import { DEFAULT_SHEET, layoutSheet, normalizeSheet } from './sheet'
 import { createStorage, defaultStore } from './storage'
-import { designToSvg, svgFilename } from './svg'
+import { designToSvg, sheetSvgFilename, sheetToSvg, svgFilename } from './svg'
 import type { Unit } from './units'
 
 const storage = createStorage(defaultStore())
 
-const state: AppState = { design: PRESETS[0], unit: 'in', editing: false, status: '', saved: [], canSave: storage.available }
+const state: AppState = {
+  design: PRESETS[0],
+  unit: 'in',
+  editing: false,
+  status: '',
+  saved: [],
+  canSave: storage.available,
+  view: 'tag',
+  sheet: storage.loadSheet() ?? DEFAULT_SHEET,
+}
 
 const controlsEl = document.getElementById('controls')!
 const previewEl = document.getElementById('preview')!
 const statusEl = document.getElementById('status')!
+const viewEl = document.getElementById('view')!
+const downloadBtn = document.getElementById('download') as HTMLButtonElement
+const copyBtn = document.getElementById('copy') as HTMLButtonElement
 
 const STORAGE_MSG = "Browser storage is unavailable; designs won't be saved"
 
 const HINT = 'Drag the hole to move it \u00b7 drag its edge dot to resize'
 
+const SHEET_HINT = 'Tags are packed from the top-left so the leftover paper stays in one piece'
+
 function renderStatus() {
-  statusEl.textContent = state.status || HINT
+  statusEl.textContent = state.status || (state.view === 'sheet' ? SHEET_HINT : HINT)
   statusEl.classList.toggle('error', state.status.startsWith('Warning'))
+}
+
+/** The toolbar follows the view: in Sheet view the buttons export the sheet. */
+function renderToolbar() {
+  for (const b of viewEl.querySelectorAll<HTMLButtonElement>('button')) {
+    const on = b.dataset.view === state.view
+    b.classList.toggle('active', on)
+    b.setAttribute('aria-pressed', String(on))
+  }
+  const sheet = state.view === 'sheet'
+  downloadBtn.textContent = sheet ? 'Download sheet SVG' : 'Download SVG'
+  copyBtn.textContent = sheet ? 'Copy sheet SVG' : 'Copy SVG'
+  const empty = sheet && layoutSheet(state.design, state.sheet).length === 0
+  downloadBtn.disabled = empty
+  copyBtn.disabled = empty
 }
 
 function render() {
   state.saved = storage.listSaved()
   renderPanel(controlsEl, state, panelActions)
   renderPreview(previewEl, state, previewActions)
+  renderToolbar()
   renderStatus()
 }
 
@@ -58,6 +89,7 @@ const panelActions: PanelActions = {
   startEditing() {
     const d = state.design
     state.editing = true
+    state.view = 'tag'
     // Convert the current shape to editable nodes (once per design).
     commit(
       d.points
@@ -93,6 +125,11 @@ const panelActions: PanelActions = {
     storage.remove(name)
     render()
   },
+  updateSheet(patch) {
+    state.sheet = normalizeSheet(patch(state.sheet))
+    storage.saveSheet(state.sheet)
+    render()
+  },
 }
 
 const previewActions: PreviewActions = {
@@ -118,12 +155,28 @@ function setStatus(msg: string) {
   renderStatus()
 }
 
-document.getElementById('download')!.addEventListener('click', () => {
-  const blob = new Blob([designToSvg(state.design, state.unit)], { type: 'image/svg+xml' })
+viewEl.addEventListener('click', (e) => {
+  const view = (e.target as HTMLElement).closest<HTMLButtonElement>('button')?.dataset.view
+  if ((view !== 'tag' && view !== 'sheet') || view === state.view) return
+  state.view = view
+  state.status = ''
+  render()
+})
+
+/** What the export buttons produce in the current view. */
+function exportSvg(): { svg: string; filename: string } {
+  return state.view === 'sheet'
+    ? { svg: sheetToSvg(state.design, state.sheet, state.unit), filename: sheetSvgFilename(state.design, state.sheet) }
+    : { svg: designToSvg(state.design, state.unit), filename: svgFilename(state.design) }
+}
+
+downloadBtn.addEventListener('click', () => {
+  const { svg, filename } = exportSvg()
+  const blob = new Blob([svg], { type: 'image/svg+xml' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = svgFilename(state.design)
+  a.download = filename
   document.body.append(a)
   a.click()
   a.remove()
@@ -131,10 +184,10 @@ document.getElementById('download')!.addEventListener('click', () => {
   setStatus(`Downloaded ${a.download}`)
 })
 
-document.getElementById('copy')!.addEventListener('click', async () => {
+copyBtn.addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText(designToSvg(state.design, state.unit))
-    setStatus('SVG copied to the clipboard')
+    await navigator.clipboard.writeText(exportSvg().svg)
+    setStatus(state.view === 'sheet' ? 'Sheet SVG copied to the clipboard' : 'SVG copied to the clipboard')
   } catch {
     setStatus('Warning: could not copy to the clipboard')
   }

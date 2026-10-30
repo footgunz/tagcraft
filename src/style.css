@@ -419,3 +419,42 @@ button.remove.confirm {
   border-color: #b3261e;
   color: #b3261e;
 }
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  border-color: var(--border);
+}
+
+.sheet-summary {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sheet-summary.error {
+  color: #c62828;
+}
+
+#preview .sheet {
+  fill: #fff;
+  stroke: var(--muted);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+#preview .margin {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Tags on the sheet get a light tint so they read against the white paper. */
+#preview .sheet ~ .tag {
+  fill: #eaf2fa;
+}
