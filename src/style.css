@@ -458,3 +458,22 @@ button:disabled:hover {
 #preview .sheet ~ .tag {
   fill: #eaf2fa;
 }
+
+.brand-links {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.version {
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.8;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+
+a.version:hover {
+  color: var(--accent);
+  opacity: 1;
+}

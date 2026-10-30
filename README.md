@@ -43,6 +43,8 @@ npm run build
 
 Type-checks, then writes `dist/tagcraft.html`. Rebuild after changing code; `dist/` is not committed.
 
+The app shows its version in small text next to **Source code**, so you can tell builds apart. A release build shows the release's tag (for example `v0.0.4`, linking to its release notes); any other build shows `git describe`, for example `v0.0.3-3-gbdac605`, with `-dirty` when there are uncommitted changes. Set `TAGCRAFT_VERSION` to override it.
+
 ### Test
 
 ```bash

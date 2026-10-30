@@ -77,6 +77,13 @@ function clearPending() {
 
 const SOURCE_URL = 'https://github.com/footgunz/tagcraft'
 
+/** A release tag (v1.2.3) links to its release; any other build (git describe, dev) is plain text. */
+export function versionLink(version: string): { text: string; href: string | null } {
+  return /^v\d+\.\d+\.\d+$/.test(version)
+    ? { text: version, href: `${SOURCE_URL}/releases/tag/${version}` }
+    : { text: version, href: null }
+}
+
 type Kind = ShapeSettings['kind']
 const KIND_LABELS: [Kind, string][] = [
   ['rectangle', 'Rectangle'],
@@ -304,7 +311,19 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
   head.className = 'brand'
   head.innerHTML =
     `<h1><a href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer" title="Tagcraft on GitHub">Tagcraft</a></h1>` +
-    `<a class="source-link" href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">Source code</a>`
+    `<span class="brand-links"><a class="source-link" href="${SOURCE_URL}" target="_blank" rel="noopener noreferrer">Source code</a></span>`
+  // Which build this is, so a copy of the app can be told apart from another.
+  const v = versionLink(__APP_VERSION__)
+  const version = document.createElement(v.href ? 'a' : 'span')
+  version.className = 'version'
+  version.textContent = v.text
+  version.title = v.href ? `Tagcraft ${v.text}: release notes` : 'Development build'
+  if (v.href && version instanceof HTMLAnchorElement) {
+    version.href = v.href
+    version.target = '_blank'
+    version.rel = 'noopener noreferrer'
+  }
+  head.querySelector('.brand-links')!.prepend(version)
   root.append(head)
 
   // Presets: built-ins, then saved designs (with a remove control).
