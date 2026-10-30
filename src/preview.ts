@@ -32,10 +32,12 @@ interface Live {
 }
 const live = new WeakMap<HTMLElement, Live>()
 
-type Drag =
-  | { mode: 'move'; pointerId: number; grab: number }
-  | { mode: 'resize'; pointerId: number }
-  | { mode: 'node'; pointerId: number; index: number; part: 'p' | 'hIn' | 'hOut'; dx: number; dy: number }
+/** `start` is the pointer's screen position at pointerdown; `moved` turns on once it leaves it. */
+type Drag = { pointerId: number; start: { x: number; y: number }; moved: boolean } & (
+  | { mode: 'move'; grab: number }
+  | { mode: 'resize' }
+  | { mode: 'node'; index: number; part: 'p' | 'hIn' | 'hOut'; dx: number; dy: number }
+)
 const drags = new WeakMap<HTMLElement, Drag>()
 
 /** Pointer position in design (mm) coordinates, using the current svg's transform. */
@@ -67,6 +69,7 @@ function attach(root: HTMLElement) {
     const p = toDesign(root, e)
     if (!p) return
     const d = cur.state.design
+    const start = { x: e.clientX, y: e.clientY }
     const kind = target.getAttribute('data-drag')
     if (kind === 'node') {
       if (!cur.state.editing) return
@@ -75,7 +78,7 @@ function attach(root: HTMLElement) {
       const at = buildOutline(d)[index]?.[part]
       if (!at) return
       // Remember where inside the dot it was grabbed so the node doesn't jump.
-      drags.set(root, { mode: 'node', pointerId: e.pointerId, index, part, dx: at.x - p.x, dy: at.y - p.y })
+      drags.set(root, { mode: 'node', pointerId: e.pointerId, start, moved: false, index, part, dx: at.x - p.x, dy: at.y - p.y })
       root.setPointerCapture(e.pointerId)
       e.preventDefault()
       return
@@ -83,7 +86,7 @@ function attach(root: HTMLElement) {
     const mode = kind === 'resize' ? 'resize' : 'move'
     const horizontal = holeAxisOf(d.shape.kind) === 'horizontal'
     const grab = mode === 'move' ? (horizontal ? p.x : p.y) - d.hole.offset : 0
-    drags.set(root, { mode, pointerId: e.pointerId, grab } as Drag)
+    drags.set(root, { mode, pointerId: e.pointerId, start, moved: false, grab } as Drag)
     // Capture on the persistent container: the svg inside is rebuilt on every move.
     root.setPointerCapture(e.pointerId)
     e.preventDefault()
@@ -92,6 +95,8 @@ function attach(root: HTMLElement) {
     const cur = live.get(root)
     const drag = drags.get(root)
     if (!cur || !drag || drag.pointerId !== e.pointerId) return
+    if (!drag.moved && e.clientX === drag.start.x && e.clientY === drag.start.y) return
+    drag.moved = true
     const p = toDesign(root, e)
     if (p && drag.mode === 'node') {
       const to: Pt = { x: p.x + drag.dx, y: p.y + drag.dy }
@@ -104,6 +109,8 @@ function attach(root: HTMLElement) {
     if (!cur || !drag || drag.pointerId !== e.pointerId) return
     drags.delete(root)
     if (root.hasPointerCapture(e.pointerId)) root.releasePointerCapture(e.pointerId)
+    // A click without movement changed nothing: don't commit (and re-fit) anything.
+    if (!drag.moved) return
     // A cancelled gesture still commits the last shown state so state and preview agree.
     if (drag.mode === 'node') cur.actions.setPoints(buildOutline(cur.state.design), true)
     else cur.actions.setHole(cur.state.design.hole, true)
@@ -123,12 +130,12 @@ export function renderPreview(root: HTMLElement, state: AppState, actions: Previ
   const b = contourBounds(buildOutline(d))
   const w = b.maxX - b.minX
   const h = b.maxY - b.minY
-  const padX = w * 0.1
-  const padY = h * 0.1
   const big = Math.max(w, h)
+  // One pad on all four sides, from the larger side, so every shape gets the same label room.
+  const pad = big * 0.1
   const font = big * 0.045
   const svg = el('svg', {
-    viewBox: `${b.minX - padX} ${b.minY - padY} ${w + 2 * padX} ${h + 2 * padY}`,
+    viewBox: `${b.minX - pad} ${b.minY - pad} ${w + 2 * pad} ${h + 2 * pad}`,
     role: 'img',
     'aria-label': `${d.name} tag preview`,
   })
@@ -138,9 +145,9 @@ export function renderPreview(root: HTMLElement, state: AppState, actions: Previ
   const midX = (b.minX + b.maxX) / 2
   const midY = (b.minY + b.maxY) / 2
   svg.append(
-    el('text', { class: 'dim', x: midX, y: b.maxY + padY * 0.65, 'text-anchor': 'middle', 'font-size': font }, formatLength(d.width, unit)),
+    el('text', { class: 'dim', x: midX, y: b.maxY + pad * 0.65, 'text-anchor': 'middle', 'font-size': font }, formatLength(d.width, unit)),
   )
-  const lx = b.minX - padX * 0.4
+  const lx = b.minX - pad * 0.4
   svg.append(
     el(
       'text',
