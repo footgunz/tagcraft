@@ -64,7 +64,7 @@ and should look, build and ship the same way.
 
 Left panel, top to bottom:
 
-1. **Presets:** a grid of thumbnails. Built-in presets first, then the user's
+1. **Presets:** a grid of thumbnails (nine built-ins). Built-in presets first, then the user's
    saved designs. Clicking one loads it.
 2. **Shape:** base shape picker, width, height, then the settings for that base
    shape.
@@ -87,6 +87,8 @@ sits.
 | Polygon | Number of sides. Corner rounding. |
 | Star | Number of points, point depth (inner radius as a fraction of outer). Corner rounding. |
 | Wavy | Number of waves and wave height along the long edges, with straight short ends. Hole end style as for rectangle. |
+| Ellipse | None beyond width and height. With proportions locked it is a circle. |
+| Oval | None beyond width and height: straight long sides with fully round ends (a stadium). *(My call: "oval" and "ellipse" are kept distinct this way.)* |
 
 "Rounded" hole end on a rectangle means a full semicircle across the height.
 
@@ -103,6 +105,15 @@ applied after scaling, so the corners stay circular.
 - **Star:** 5-point star.
 - **Wavy:** wavy long edges.
 - **Hexagon:** polygon, 6 sides.
+- **Circle:** ellipse with proportions locked, 2" across.
+- **Ellipse:** ellipse, 3" × 1.75".
+- **Oval:** oval (stadium), 3" × 1.5".
+- **Seal:** star with many shallow points (36 points, depth 0.88), 2.5" across,
+  like a certificate seal.
+
+Ellipse and oval tags have the hole end on the left, like rectangles. A circle
+uses the same horizontal axis. Star point counts go up to 60 so a seal can be
+made.
 
 ### Hole
 
