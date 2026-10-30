@@ -166,32 +166,6 @@ button.preset i {
   border: 3px solid;
 }
 
-.letters {
-  margin-bottom: 8px;
-}
-
-.letter {
-  display: grid;
-  grid-template-columns: 24px repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  align-items: center;
-  margin: 4px 0;
-}
-
-.letter b {
-  font-size: 18px;
-  text-align: center;
-}
-
-.letter.head span {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.letter input {
-  padding: 4px 6px;
-}
-
 textarea {
   font-size: 18px;
   resize: vertical;
@@ -211,8 +185,7 @@ input[type='color'] {
   background: #fff;
 }
 
-button,
-.upload {
+button {
   font: inherit;
   padding: 6px 12px;
   border: 1px solid var(--border);
@@ -222,8 +195,7 @@ button,
   white-space: nowrap;
 }
 
-button:hover,
-.upload:hover {
+button:hover {
   border-color: var(--accent);
 }
 
@@ -252,45 +224,6 @@ button.primary {
 .actions {
   display: flex;
   gap: 8px;
-}
-
-.layers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px 3px 4px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 12px;
-}
-
-button.chip {
-  font: inherit;
-  font-size: 12px;
-  background: #fff;
-  cursor: pointer;
-}
-
-button.chip.off {
-  opacity: 0.45;
-  text-decoration: line-through;
-}
-
-button.chip.off i {
-  background: transparent !important;
-}
-
-.chip i {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
 .canvas {
@@ -334,79 +267,6 @@ button.chip.off i {
     border-right: 0;
     order: 2;
   }
-}
-
-.font-info {
-  margin: 4px 0 6px;
-  font-size: 12px;
-}
-
-.font-info summary {
-  cursor: pointer;
-  color: var(--muted);
-}
-
-.font-info dl {
-  display: grid;
-  grid-template-columns: 84px 1fr;
-  gap: 4px 8px;
-  margin: 8px 0 4px;
-}
-
-.font-info dt {
-  color: var(--muted);
-}
-
-.font-info dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.font-info p {
-  margin: 6px 0 0;
-}
-
-.font-info .muted {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.license-file {
-  margin-top: 6px;
-}
-
-.license-file pre {
-  max-height: 220px;
-  overflow: auto;
-  white-space: pre-wrap;
-  font-size: 11px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-  margin: 6px 0 0;
-}
-
-.font-select {
-  width: 100%;
-}
-
-.font-tools {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.font-tools .font-info {
-  flex: 1;
-  min-width: 0;
-  margin: 4px 0 0;
-}
-
-.font-tools .upload {
-  font-size: 12px;
-  padding: 3px 10px;
 }
 
 /* Tagcraft */
