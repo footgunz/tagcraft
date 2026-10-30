@@ -15,7 +15,7 @@ const custom = (customWidth: number, customHeight: number, more: Partial<Sheet> 
 })
 
 function footprint(d: Design, p: Placement) {
-  const [w, h] = p.rotation === 90 ? [d.height, d.width] : [d.width, d.height]
+  const [w, h] = p.rotation === 90 || p.rotation === 270 ? [d.height, d.width] : [d.width, d.height]
   return { x0: p.x, y0: p.y, x1: p.x + w, y1: p.y + h }
 }
 
@@ -84,7 +84,8 @@ describe('layoutSheet', () => {
   it('a count above the max gives the max', () => {
     expect(layoutSheet(gift, { ...DEFAULT_SHEET, count: 999 })).toHaveLength(15)
   })
-  it('every preset stays inside the margin with at least one gap between tags', () => {
+  // Gaps between the actual outlines (nested tags' boxes may overlap) are checked in nest.test.ts.
+  it('every preset stays inside the margin', () => {
     for (const size of ['letter', 'a4'] as const) {
       const sheet = { ...DEFAULT_SHEET, size }
       const { width, height } = sheetDimensions(sheet)
@@ -97,13 +98,6 @@ describe('layoutSheet', () => {
           expect(b.x1).toBeLessThanOrEqual(width - sheet.margin + 1e-6)
           expect(b.y1).toBeLessThanOrEqual(height - sheet.margin + 1e-6)
         }
-        for (let i = 0; i < boxes.length; i++)
-          for (let j = i + 1; j < boxes.length; j++) {
-            const a = boxes[i]
-            const b = boxes[j]
-            const apart = Math.max(b.x0 - a.x1, a.x0 - b.x1, b.y0 - a.y1, a.y0 - b.y1)
-            expect(apart).toBeGreaterThanOrEqual(sheet.gap - 1e-6)
-          }
       }
     }
   })

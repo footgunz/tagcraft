@@ -39,7 +39,7 @@ describe('sheet svg export', () => {
     return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }
   }
   function slot(p: Placement) {
-    const [w, h] = p.rotation === 90 ? [gift.height, gift.width] : [gift.width, gift.height]
+    const [w, h] = p.rotation === 90 || p.rotation === 270 ? [gift.height, gift.width] : [gift.width, gift.height]
     return { x0: p.x, y0: p.y, x1: p.x + w, y1: p.y + h }
   }
 

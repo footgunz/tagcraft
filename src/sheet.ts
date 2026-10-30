@@ -1,4 +1,5 @@
 import { clampNum, rec, type Design } from './design'
+import { nestedLayout, type Rotation } from './nest'
 
 export type SheetSize = 'letter' | 'a4' | 'custom'
 
@@ -62,12 +63,12 @@ export function sheetDimensions(s: Sheet): { width: number; height: number } {
 
 /**
  * mm. (x, y) is the top-left of the tag's bounding box on the sheet. A turned tag
- * (rotation 90) takes up height × width.
+ * (rotation 90 or 270) takes up height × width; 180 is upside down.
  */
 export interface Placement {
   x: number
   y: number
-  rotation: 0 | 90
+  rotation: Rotation
 }
 
 // Float slack so a tag that fits exactly isn't lost to rounding.
@@ -78,20 +79,35 @@ function fit(size: number, length: number, gap: number): number {
   return size > length + EPS ? 0 : Math.floor((length + gap) / (size + gap) + EPS)
 }
 
-function grid(x0: number, y0: number, cols: number, rows: number, w: number, h: number, gap: number, rotation: 0 | 90): Placement[] {
+function grid(x0: number, y0: number, cols: number, rows: number, w: number, h: number, gap: number, rotation: Rotation): Placement[] {
   const out: Placement[] = []
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) out.push({ x: x0 + c * (w + gap), y: y0 + r * (h + gap), rotation })
   return out
 }
 
+// The panel, preview, toolbar and export all ask for the same layout on each change.
+const layouts = new Map<string, Placement[]>()
+
 /**
- * As many copies of the design's bounding box as fit inside the margin, packed
- * from the top-left. Tries all upright, all turned, then mixed (one orientation
- * in a block, the other in the leftover strip to the right or below); the most
- * tags wins and ties go to the earlier, simpler layout. With a count, keeps the
- * first N in reading order.
+ * As many copies of the design as fit inside the margin, packed from the
+ * top-left. Tries bounding-box grids first: all upright, all turned, then mixed
+ * (one orientation in a block, the other in the leftover strip to the right or
+ * below). Then shape-aware nesting, which packs the actual outlines (staggered
+ * rows, tags flipped to interlock). The most tags wins and ties go to the
+ * earlier, simpler layout. With a count, keeps the first N in reading order.
  */
 export function layoutSheet(d: Design, s: Sheet): Placement[] {
+  const key = JSON.stringify([d, s])
+  let out = layouts.get(key)
+  if (!out) {
+    out = computeLayout(d, s)
+    if (layouts.size > 16) layouts.clear()
+    layouts.set(key, out)
+  }
+  return out
+}
+
+function computeLayout(d: Design, s: Sheet): Placement[] {
   const { width, height } = sheetDimensions(s)
   const { margin: m, gap: g } = s
   const W = width - 2 * m
@@ -124,6 +140,8 @@ export function layoutSheet(d: Design, s: Sheet): Placement[] {
       ])
     }
   }
+
+  candidates.push(nestedLayout(d, W, H, g).map((p) => ({ x: m + p.x, y: m + p.y, rotation: p.rotation })))
 
   let best: Placement[] = []
   for (const c of candidates) if (c.length > best.length) best = c
