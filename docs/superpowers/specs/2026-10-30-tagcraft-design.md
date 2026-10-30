@@ -29,8 +29,9 @@ and should look, build and ship the same way.
   open to extra layers (for example, a list of layers or a separate `text`
   field later) without building it now.
 - **Fill a sheet.** Laying out N copies to fill a given sheet/mat size is a
-  planned follow-up. Keep shape generation a pure function of the design so it
-  can be stamped repeatedly later.
+  planned follow-up, specified in [Sheet fill design](2026-10-30-sheet-fill-design.md).
+  Keep shape generation a pure function of the design so it can be stamped
+  repeatedly later.
 - Hole shapes other than round, off-center holes, multiple holes, and
   reinforcement rings.
 - PNG export (the output is for cutting).
