@@ -4,11 +4,15 @@ A walkthrough of the app, from picking a tag to downloading a file you can cut. 
 
 Once your SVG is ready, see [Cutting with Cricut Design Space](cricut.md).
 
+![The Tagcraft window](assets/overview.png)
+
 The left panel is the controls; the right side is a live preview with the tag's width and height labelled. Your current design is remembered in your browser between visits.
 
 ## 1. Pick a preset
 
 **Preset** is a grid of thumbnails. Click one to load it. Your own saved designs appear after the built-in ones (see [Save your design](#6-save-your-design)).
+
+![Clicking through the built-in presets](assets/presets.gif)
 
 | Preset | What it is |
 | --- | --- |
@@ -28,7 +32,11 @@ The **Units** switch picks inches or mm for every length in the panel, the previ
 
 ## 3. Shape it
 
-Choose a **Base shape**, then set **Width** and **Height**. Each shape has its own extra settings:
+Choose a **Base shape**, then set **Width** and **Height**.
+
+![Changing the clip and end style of the gift tag, then turning it into a star and changing its points and depth](assets/shapes.gif)
+
+Each shape has its own extra settings:
 
 | Base shape | Settings |
 | --- | --- |
@@ -54,11 +62,15 @@ You can also do it on the preview:
 
 The fields and the preview stay in sync as you drag.
 
+![Dragging the hole along the tag, then dragging its edge dot to resize it](assets/hole.gif)
+
 **Minimum wall.** At least 1/8" (3.175 mm) of material always stays around the hole. The hole can't be dragged or sized past that, and if a typed value or a shape change (a smaller height, more sides, deeper star points) would break it, the hole is moved first and then shrunk, and the status line says **Hole adjusted to keep a 1/8" wall**.
 
 ## 5. Edit points
 
 For a shape no setting can make, press **Edit points…**. The outline (not the hole) becomes bezier points: drag a square point to move it, and drag its round handles to bend the curves. Press **Done editing** when you're finished.
+
+![Dragging a corner point, then a handle to bend the curve](assets/edit-points.gif)
 
 - Once a design has edited points, the shape settings are disabled for it. **Width** and **Height** still scale the edited shape, and the hole stays editable.
 - **Reset to shape** throws the point edits away and goes back to the shape settings.
@@ -84,6 +96,8 @@ To export a whole sheet of copies instead, see [Fill a sheet](#8-fill-a-sheet).
 ## 8. Fill a sheet
 
 To cut many copies of a tag at once, switch the toolbar from **Tag** to **Sheet**. The preview then shows a whole sheet of paper with as many copies of your tag as fit. The dashed line is the margin. Sheet view is for looking only; switch back to **Tag** (or press **Edit points…**) to change the tag. Any change you make to the tag or the sheet shows up on the sheet straight away.
+
+![Switching to Sheet view, then changing the sheet size, gap and count](assets/sheet.gif)
 
 Set up the paper in the panel's **Sheet** section, which appears while you're in Sheet view:
 
