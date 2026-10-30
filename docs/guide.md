@@ -85,7 +85,7 @@ To export a whole sheet of copies instead, see [Fill a sheet](#8-fill-a-sheet).
 
 To cut many copies of a tag at once, switch the toolbar from **Tag** to **Sheet**. The preview then shows a whole sheet of paper with as many copies of your tag as fit. The dashed line is the margin. Sheet view is for looking only; switch back to **Tag** (or press **Edit points…**) to change the tag. Any change you make to the tag or the sheet shows up on the sheet straight away.
 
-Set up the paper in the panel's **Sheet** section:
+Set up the paper in the panel's **Sheet** section, which appears while you're in Sheet view:
 
 | Setting | What it does |
 | --- | --- |

@@ -76,11 +76,20 @@ test('a sheet too small for the tag disables export', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Copy sheet SVG' })).toBeDisabled()
 })
 
+test('the Sheet section only shows in Sheet view', async ({ page }) => {
+  await expect(section(page, 'Sheet')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Sheet', exact: true }).click()
+  await expect(section(page, 'Sheet')).toBeVisible()
+  await page.getByRole('button', { name: 'Tag', exact: true }).click()
+  await expect(section(page, 'Sheet')).toHaveCount(0)
+})
+
 test('sheet settings survive a reload', async ({ page }) => {
+  await page.getByRole('button', { name: 'Sheet', exact: true }).click()
   await setNumber(page, 'Sheet', 'Count', '4')
   await expect(page.locator('.sheet-summary')).toHaveText('Cutting 4 of 15 · 4 turned')
   await page.reload()
-  await expect(section(page, 'Sheet').getByLabel('Count')).toHaveValue('4')
   await page.getByRole('button', { name: 'Sheet', exact: true }).click()
+  await expect(section(page, 'Sheet').getByLabel('Count')).toHaveValue('4')
   await expect(page.locator('#preview path.tag')).toHaveCount(4)
 })
