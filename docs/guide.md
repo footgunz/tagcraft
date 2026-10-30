@@ -67,7 +67,7 @@ For a shape no setting can make, press **Edit points…**. The outline (not the 
 
 ## 6. Save your design
 
-Type a **Name** and press **Save design** (or Enter). It is stored in your browser and shows up in the preset grid after the built-ins, with its own thumbnail. Saving a name you already used replaces that design. You can't reuse a built-in preset's name.
+The **Save** section appears once you change anything about a built-in preset; an untouched preset is already in the grid. Type a **Name** and press **Save design** (or Enter). It is stored in your browser and shows up in the preset grid after the built-ins, with its own thumbnail. Saving a name you already used replaces that design. You can't reuse a built-in preset's name.
 
 To delete one, click the **×** on its thumbnail; it turns into **Remove?**, and a second click within a few seconds removes it. Built-in presets can't be removed.
 
@@ -85,7 +85,7 @@ To export a whole sheet of copies instead, see [Fill a sheet](#8-fill-a-sheet).
 
 To cut many copies of a tag at once, switch the toolbar from **Tag** to **Sheet**. The preview then shows a whole sheet of paper with as many copies of your tag as fit. The dashed line is the margin. Sheet view is for looking only; switch back to **Tag** (or press **Edit points…**) to change the tag. Any change you make to the tag or the sheet shows up on the sheet straight away.
 
-Set up the paper in the panel's **Sheet** section:
+Set up the paper in the panel's **Sheet** section, which appears while you're in Sheet view:
 
 | Setting | What it does |
 | --- | --- |

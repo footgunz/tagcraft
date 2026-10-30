@@ -1,5 +1,6 @@
 import type { Design, EndStyle, ShapeSettings } from './design'
 import { PRESETS } from './design'
+import { settleDesign } from './hole'
 import { buildOutline, naturalAspect } from './shapes'
 import { layoutSheet, SHEET_PRESETS, type Sheet, type SheetSize } from './sheet'
 import { contourBounds } from './contour'
@@ -47,6 +48,20 @@ export interface PresetEntry {
 export function presetEntries(saved: Design[], current: Design): PresetEntry[] {
   const mk = (design: Design, isSaved: boolean) => ({ design, saved: isSaved, active: sameName(design.name, current.name) })
   return [...PRESETS.map((p) => mk(p, false)), ...saved.filter((s) => !PRESETS.some((p) => sameName(p.name, s.name))).map((s) => mk(s, true))]
+}
+
+/** Deep equality, with float slack for numbers that went through normalizing. */
+function same(a: unknown, b: unknown): boolean {
+  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) < 1e-9
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return a === b
+  const ka = Object.keys(a)
+  const kb = Object.keys(b)
+  return ka.length === kb.length && ka.every((k) => same((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+}
+
+/** True when the design is a built-in preset exactly as it loads, so there's nothing to save. */
+export function isUnchangedPreset(d: Design): boolean {
+  return PRESETS.some((p) => same(settleDesign(p).design, d))
 }
 
 // Two-click remove confirmation. Lives at module level so it survives panel re-renders;
@@ -223,6 +238,62 @@ export function syncHoleFields(root: HTMLElement, state: AppState): void {
   set('hole-offset', state.design.hole.offset)
 }
 
+/** The Sheet section: paper size, margin, gap, count, and what fits. */
+function sheetSection(root: HTMLElement, state: AppState, actions: PanelActions, rerender: () => void): void {
+  const { design: d, unit, sheet: sh } = state
+  const sheetSec = section(root, 'Sheet')
+  const setSheet = (patch: Partial<Sheet>) => actions.updateSheet((x) => ({ ...x, ...patch }))
+  selectRow(sheetSec, 'Size', SIZE_LABELS, sh.size, (v) => setSheet({ size: v }))
+  if (sh.size === 'custom') {
+    numberRow(sheetSec, 'Width', sh.customWidth, unit, { length: true }, (v) => setSheet({ customWidth: v }), rerender)
+    numberRow(sheetSec, 'Height', sh.customHeight, unit, { length: true }, (v) => setSheet({ customHeight: v }), rerender)
+  }
+  numberRow(sheetSec, 'Margin', sh.margin, unit, { length: true }, (v) => setSheet({ margin: v }), rerender)
+  numberRow(sheetSec, 'Gap', sh.gap, unit, { length: true }, (v) => setSheet({ gap: v }), rerender)
+  // Count: empty means as many as fit.
+  const count = document.createElement('input')
+  count.type = 'number'
+  count.id = 'sheet-count'
+  count.min = '1'
+  count.step = '1'
+  count.placeholder = 'As many as fit'
+  count.value = sh.count === null ? '' : String(sh.count)
+  count.addEventListener('change', () => {
+    if (count.value.trim() === '') return setSheet({ count: null })
+    const v = count.valueAsNumber
+    if (!Number.isFinite(v)) return rerender()
+    setSheet({ count: v })
+  })
+  row(sheetSec, 'Count', count)
+  const summary = sheetSummary(d, sh)
+  const note = document.createElement('p')
+  note.className = 'sheet-summary' + (summary.fits ? '' : ' error')
+  note.textContent = summary.text
+  sheetSec.append(note)
+}
+
+/** The Save section: name the design and store it with the presets. */
+function saveSection(root: HTMLElement, state: AppState, actions: PanelActions): void {
+  const save = section(root, 'Save')
+  const nameInput = document.createElement('input')
+  nameInput.type = 'text'
+  nameInput.id = 'save-name'
+  nameInput.value = state.design.name
+  nameInput.maxLength = 60
+  nameInput.placeholder = 'Design name'
+  const saveBtn = document.createElement('button')
+  saveBtn.type = 'button'
+  saveBtn.className = 'action'
+  saveBtn.textContent = 'Save design'
+  saveBtn.disabled = !state.canSave
+  saveBtn.title = state.canSave ? 'Save this design in the preset grid' : 'Browser storage is unavailable'
+  const doSave = () => state.canSave && actions.saveAs(nameInput.value)
+  saveBtn.addEventListener('click', doSave)
+  nameInput.addEventListener('keydown', (ev) => ev.key === 'Enter' && doSave())
+  row(save, 'Name', nameInput)
+  save.append(saveBtn)
+}
+
 export function renderPanel(root: HTMLElement, state: AppState, actions: PanelActions): void {
   const { design: d, unit } = state
   const rerender = () => renderPanel(root, state, actions)
@@ -385,57 +456,11 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
   numberRow(hole, holeLabels(s.kind).offset, d.hole.offset, unit, { length: true, id: 'hole-offset' }, (v) =>
     actions.update((x) => ({ ...x, hole: { ...x.hole, offset: v } })), rerender)
 
-  // Sheet: the paper the copies are laid out on (shown in the Sheet view).
-  const sh = state.sheet
-  const sheetSec = section(root, 'Sheet')
-  const setSheet = (patch: Partial<Sheet>) => actions.updateSheet((x) => ({ ...x, ...patch }))
-  selectRow(sheetSec, 'Size', SIZE_LABELS, sh.size, (v) => setSheet({ size: v }))
-  if (sh.size === 'custom') {
-    numberRow(sheetSec, 'Width', sh.customWidth, unit, { length: true }, (v) => setSheet({ customWidth: v }), rerender)
-    numberRow(sheetSec, 'Height', sh.customHeight, unit, { length: true }, (v) => setSheet({ customHeight: v }), rerender)
-  }
-  numberRow(sheetSec, 'Margin', sh.margin, unit, { length: true }, (v) => setSheet({ margin: v }), rerender)
-  numberRow(sheetSec, 'Gap', sh.gap, unit, { length: true }, (v) => setSheet({ gap: v }), rerender)
-  // Count: empty means as many as fit.
-  const count = document.createElement('input')
-  count.type = 'number'
-  count.id = 'sheet-count'
-  count.min = '1'
-  count.step = '1'
-  count.placeholder = 'As many as fit'
-  count.value = sh.count === null ? '' : String(sh.count)
-  count.addEventListener('change', () => {
-    if (count.value.trim() === '') return setSheet({ count: null })
-    const v = count.valueAsNumber
-    if (!Number.isFinite(v)) return rerender()
-    setSheet({ count: v })
-  })
-  row(sheetSec, 'Count', count)
-  const summary = sheetSummary(d, sh)
-  const note = document.createElement('p')
-  note.className = 'sheet-summary' + (summary.fits ? '' : ' error')
-  note.textContent = summary.text
-  sheetSec.append(note)
+  // Sheet: the paper the copies are laid out on. Only shown in the Sheet view.
+  if (state.view === 'sheet') sheetSection(root, state, actions, rerender)
 
-  // Save.
-  const save = section(root, 'Save')
-  const nameInput = document.createElement('input')
-  nameInput.type = 'text'
-  nameInput.id = 'save-name'
-  nameInput.value = d.name
-  nameInput.maxLength = 60
-  nameInput.placeholder = 'Design name'
-  const saveBtn = document.createElement('button')
-  saveBtn.type = 'button'
-  saveBtn.className = 'action'
-  saveBtn.textContent = 'Save design'
-  saveBtn.disabled = !state.canSave
-  saveBtn.title = state.canSave ? 'Save this design in the preset grid' : 'Browser storage is unavailable'
-  const doSave = () => state.canSave && actions.saveAs(nameInput.value)
-  saveBtn.addEventListener('click', doSave)
-  nameInput.addEventListener('keydown', (ev) => ev.key === 'Enter' && doSave())
-  row(save, 'Name', nameInput)
-  save.append(saveBtn)
+  // Save: hidden until the design differs from the built-in preset it came from.
+  if (!isUnchangedPreset(d)) saveSection(root, state, actions)
 
   root.scrollTop = scroll
 }

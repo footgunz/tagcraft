@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRESETS, normalizeDesign } from './design'
-import { presetEntries, sheetSummary, switchKind } from './panel'
+import { settleDesign } from './hole'
+import { isUnchangedPreset, presetEntries, sheetSummary, switchKind } from './panel'
 import { DEFAULT_SHEET } from './sheet'
 import { naturalAspect } from './shapes'
 
@@ -48,5 +49,20 @@ describe('sheetSummary', () => {
   it('reports when nothing fits', () => {
     const tiny = { ...DEFAULT_SHEET, size: 'custom' as const, customWidth: 50, customHeight: 50 }
     expect(sheetSummary(PRESETS[0], tiny).fits).toBe(false)
+  })
+})
+
+describe('isUnchangedPreset', () => {
+  it('is true for every built-in preset as it loads', () => {
+    for (const p of PRESETS) expect(isUnchangedPreset(settleDesign(p).design)).toBe(true)
+  })
+  it('is false once anything changes', () => {
+    const gift = settleDesign(PRESETS[0]).design
+    expect(isUnchangedPreset({ ...gift, width: gift.width + 1 })).toBe(false)
+    expect(isUnchangedPreset({ ...gift, hole: { ...gift.hole, diameter: 5 } })).toBe(false)
+    expect(isUnchangedPreset(settleDesign(switchKind(gift, 'oval')).design)).toBe(false)
+  })
+  it('is false for a saved copy under another name', () => {
+    expect(isUnchangedPreset({ ...settleDesign(PRESETS[0]).design, name: 'Bag tag' })).toBe(false)
   })
 })

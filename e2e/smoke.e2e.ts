@@ -36,6 +36,14 @@ test('opens on the gift tag', async ({ page }) => {
   await expect(page.locator('#status')).toContainText('Drag the hole')
 })
 
+test('Save appears once the preset is changed', async ({ page }) => {
+  await expect(section(page, 'Save')).toHaveCount(0)
+  await setNumber(page, 'Shape', 'Width', '3.5')
+  await expect(section(page, 'Save')).toBeVisible()
+  await page.getByTitle('Load the Gift tag preset').click()
+  await expect(section(page, 'Save')).toHaveCount(0)
+})
+
 test('downloads one tag at true size', async ({ page }) => {
   const { name, svg } = await downloaded(page, () => page.getByRole('button', { name: 'Download SVG' }).click())
   expect(name).toBe('tagcraft-gift-tag.svg')
@@ -76,11 +84,20 @@ test('a sheet too small for the tag disables export', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Copy sheet SVG' })).toBeDisabled()
 })
 
+test('the Sheet section only shows in Sheet view', async ({ page }) => {
+  await expect(section(page, 'Sheet')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Sheet', exact: true }).click()
+  await expect(section(page, 'Sheet')).toBeVisible()
+  await page.getByRole('button', { name: 'Tag', exact: true }).click()
+  await expect(section(page, 'Sheet')).toHaveCount(0)
+})
+
 test('sheet settings survive a reload', async ({ page }) => {
+  await page.getByRole('button', { name: 'Sheet', exact: true }).click()
   await setNumber(page, 'Sheet', 'Count', '4')
   await expect(page.locator('.sheet-summary')).toHaveText('Cutting 4 of 15 · 4 turned')
   await page.reload()
-  await expect(section(page, 'Sheet').getByLabel('Count')).toHaveValue('4')
   await page.getByRole('button', { name: 'Sheet', exact: true }).click()
+  await expect(section(page, 'Sheet').getByLabel('Count')).toHaveValue('4')
   await expect(page.locator('#preview path.tag')).toHaveCount(4)
 })
