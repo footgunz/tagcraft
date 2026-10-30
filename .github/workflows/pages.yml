@@ -48,6 +48,8 @@ jobs:
         run: |
           mkdir -p _site
           cp dist/tagcraft.html _site/index.html
+          # Read by the app to notice a cached older copy and load this release.
+          cp dist/version.json _site/version.json
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
