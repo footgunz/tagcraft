@@ -1,5 +1,6 @@
 import type { Design, EndStyle, ShapeSettings } from './design'
 import { PRESETS } from './design'
+import { settleDesign } from './hole'
 import { buildOutline, naturalAspect } from './shapes'
 import { layoutSheet, SHEET_PRESETS, type Sheet, type SheetSize } from './sheet'
 import { contourBounds } from './contour'
@@ -47,6 +48,20 @@ export interface PresetEntry {
 export function presetEntries(saved: Design[], current: Design): PresetEntry[] {
   const mk = (design: Design, isSaved: boolean) => ({ design, saved: isSaved, active: sameName(design.name, current.name) })
   return [...PRESETS.map((p) => mk(p, false)), ...saved.filter((s) => !PRESETS.some((p) => sameName(p.name, s.name))).map((s) => mk(s, true))]
+}
+
+/** Deep equality, with float slack for numbers that went through normalizing. */
+function same(a: unknown, b: unknown): boolean {
+  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) < 1e-9
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return a === b
+  const ka = Object.keys(a)
+  const kb = Object.keys(b)
+  return ka.length === kb.length && ka.every((k) => same((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+}
+
+/** True when the design is a built-in preset exactly as it loads, so there's nothing to save. */
+export function isUnchangedPreset(d: Design): boolean {
+  return PRESETS.some((p) => same(settleDesign(p).design, d))
 }
 
 // Two-click remove confirmation. Lives at module level so it survives panel re-renders;
@@ -257,6 +272,28 @@ function sheetSection(root: HTMLElement, state: AppState, actions: PanelActions,
   sheetSec.append(note)
 }
 
+/** The Save section: name the design and store it with the presets. */
+function saveSection(root: HTMLElement, state: AppState, actions: PanelActions): void {
+  const save = section(root, 'Save')
+  const nameInput = document.createElement('input')
+  nameInput.type = 'text'
+  nameInput.id = 'save-name'
+  nameInput.value = state.design.name
+  nameInput.maxLength = 60
+  nameInput.placeholder = 'Design name'
+  const saveBtn = document.createElement('button')
+  saveBtn.type = 'button'
+  saveBtn.className = 'action'
+  saveBtn.textContent = 'Save design'
+  saveBtn.disabled = !state.canSave
+  saveBtn.title = state.canSave ? 'Save this design in the preset grid' : 'Browser storage is unavailable'
+  const doSave = () => state.canSave && actions.saveAs(nameInput.value)
+  saveBtn.addEventListener('click', doSave)
+  nameInput.addEventListener('keydown', (ev) => ev.key === 'Enter' && doSave())
+  row(save, 'Name', nameInput)
+  save.append(saveBtn)
+}
+
 export function renderPanel(root: HTMLElement, state: AppState, actions: PanelActions): void {
   const { design: d, unit } = state
   const rerender = () => renderPanel(root, state, actions)
@@ -422,25 +459,8 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
   // Sheet: the paper the copies are laid out on. Only shown in the Sheet view.
   if (state.view === 'sheet') sheetSection(root, state, actions, rerender)
 
-  // Save.
-  const save = section(root, 'Save')
-  const nameInput = document.createElement('input')
-  nameInput.type = 'text'
-  nameInput.id = 'save-name'
-  nameInput.value = d.name
-  nameInput.maxLength = 60
-  nameInput.placeholder = 'Design name'
-  const saveBtn = document.createElement('button')
-  saveBtn.type = 'button'
-  saveBtn.className = 'action'
-  saveBtn.textContent = 'Save design'
-  saveBtn.disabled = !state.canSave
-  saveBtn.title = state.canSave ? 'Save this design in the preset grid' : 'Browser storage is unavailable'
-  const doSave = () => state.canSave && actions.saveAs(nameInput.value)
-  saveBtn.addEventListener('click', doSave)
-  nameInput.addEventListener('keydown', (ev) => ev.key === 'Enter' && doSave())
-  row(save, 'Name', nameInput)
-  save.append(saveBtn)
+  // Save: hidden until the design differs from the built-in preset it came from.
+  if (!isUnchangedPreset(d)) saveSection(root, state, actions)
 
   root.scrollTop = scroll
 }

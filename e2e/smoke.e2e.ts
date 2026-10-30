@@ -36,6 +36,14 @@ test('opens on the gift tag', async ({ page }) => {
   await expect(page.locator('#status')).toContainText('Drag the hole')
 })
 
+test('Save appears once the preset is changed', async ({ page }) => {
+  await expect(section(page, 'Save')).toHaveCount(0)
+  await setNumber(page, 'Shape', 'Width', '3.5')
+  await expect(section(page, 'Save')).toBeVisible()
+  await page.getByTitle('Load the Gift tag preset').click()
+  await expect(section(page, 'Save')).toHaveCount(0)
+})
+
 test('downloads one tag at true size', async ({ page }) => {
   const { name, svg } = await downloaded(page, () => page.getByRole('button', { name: 'Download SVG' }).click())
   expect(name).toBe('tagcraft-gift-tag.svg')

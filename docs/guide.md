@@ -67,7 +67,7 @@ For a shape no setting can make, press **Edit points…**. The outline (not the 
 
 ## 6. Save your design
 
-Type a **Name** and press **Save design** (or Enter). It is stored in your browser and shows up in the preset grid after the built-ins, with its own thumbnail. Saving a name you already used replaces that design. You can't reuse a built-in preset's name.
+The **Save** section appears once you change anything about a built-in preset; an untouched preset is already in the grid. Type a **Name** and press **Save design** (or Enter). It is stored in your browser and shows up in the preset grid after the built-ins, with its own thumbnail. Saving a name you already used replaces that design. You can't reuse a built-in preset's name.
 
 To delete one, click the **×** on its thumbnail; it turns into **Remove?**, and a second click within a few seconds removes it. Built-in presets can't be removed.
 
