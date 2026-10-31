@@ -45,3 +45,16 @@ describe('design', () => {
     expect(d.width).toBeLessThanOrEqual(304.8)
   })
 })
+
+describe('border settings', () => {
+  it('presets and old saved designs have no border', () => {
+    expect(PRESETS.every((p) => p.border === null)).toBe(true)
+    const { border, ...old } = PRESETS[0]
+    expect(border).toBeNull()
+    expect(normalizeDesign(old).border).toBeNull()
+  })
+  it('repairs a border', () => {
+    expect(normalizeDesign({ ...PRESETS[0], border: { inset: 'x', style: 'wavy', weight: 7.4 } }).border).toEqual({ inset: 3.175, style: 'solid', weight: 3 })
+    expect(normalizeDesign({ ...PRESETS[0], border: { inset: 0.01, style: 'dotted', weight: 0 } }).border).toEqual({ inset: 0.5, style: 'dotted', weight: 1 })
+  })
+})

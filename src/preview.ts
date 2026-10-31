@@ -3,7 +3,7 @@ import type { Design, Hole } from './design'
 import { holeCenter, holeWallOk } from './hole'
 import { buildOutline, holeAxisOf } from './shapes'
 import { sheetDimensions } from './sheet'
-import { sheetTagPathData, tagPathData } from './svg'
+import { borderData, sheetBorderPathData, sheetTagPathData, tagPathData } from './svg'
 import { formatLength, type Unit } from './units'
 import type { AppState } from './panel'
 
@@ -135,6 +135,7 @@ function sheetPreview(state: AppState): SVGSVGElement {
   svg.append(el('rect', { class: 'sheet', x: 0, y: 0, width, height }))
   if (m > 0) svg.append(el('rect', { class: 'margin', x: m, y: m, width: width - 2 * m, height: height - 2 * m }))
   for (const data of sheetTagPathData(state.design, state.sheet)) svg.append(el('path', { class: 'tag', d: data, 'fill-rule': 'evenodd' }))
+  for (const data of sheetBorderPathData(state.design, state.sheet)) svg.append(el('path', { class: 'border', d: data }))
   svg.append(
     el('text', { class: 'dim', x: width / 2, y: height + pad * 0.65, 'text-anchor': 'middle', 'font-size': font }, formatLength(width, state.unit)),
   )
@@ -171,6 +172,8 @@ export function renderPreview(root: HTMLElement, state: AppState, actions: Previ
     'aria-label': `${d.name} tag preview`,
   })
   svg.append(el('path', { class: 'tag', d: tagPathData(d), 'fill-rule': 'evenodd' }))
+  const border = borderData(d)
+  if (border) svg.append(el('path', { class: 'border', d: border }))
 
   // Dimension labels.
   const midX = (b.minX + b.maxX) / 2

@@ -75,3 +75,10 @@ describe('versionLink', () => {
     for (const v of ['v0.0.3-3-gbdac605', 'bdac605', 'dev']) expect(versionLink(v).href).toBeNull()
   })
 })
+
+describe('isUnchangedPreset with a border', () => {
+  it('counts turning the border on as a change', () => {
+    const gift = settleDesign(PRESETS[0]).design
+    expect(isUnchangedPreset({ ...gift, border: { inset: 3.175, style: 'solid', weight: 1 } })).toBe(false)
+  })
+})
