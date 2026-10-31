@@ -9,6 +9,7 @@ import { DEFAULT_SHEET, layoutSheet, normalizeSheet } from './sheet'
 import { createStorage, defaultStore } from './storage'
 import { designToSvg, sheetSvgFilename, sheetToSvg, svgFilename } from './svg'
 import { checkForUpdate } from './update'
+import { borderPaths } from './border'
 import type { Unit } from './units'
 
 const storage = createStorage(defaultStore())
@@ -75,6 +76,8 @@ function commit(next: Design, opts: { clamp?: boolean } = {}) {
   if (!design.points) state.editing = false
   if (!holeWallOk(design)) state.status = 'Warning: the outline is closer than 1/8" to the hole'
   else if (adjusted) state.status = 'Hole adjusted to keep a 1/8" wall'
+  else if (design.border && borderPaths(design, design.border).collapsed)
+    state.status = "Warning: the border inset is too big for this shape, so there's no border"
   else state.status = storage.available ? '' : STORAGE_MSG
   render()
   storage.saveCurrent(state.design)

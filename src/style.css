@@ -487,3 +487,14 @@ button.link-button {
   font-size: 12px;
   text-decoration: underline;
 }
+
+/* The deboss border, in the same red as its export layer. */
+#preview .border {
+  fill: none;
+  stroke: #d62828;
+  stroke-width: 1.2px;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}

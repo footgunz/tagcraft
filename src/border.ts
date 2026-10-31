@@ -1,18 +1,11 @@
 import ClipperLib from 'clipper-lib'
 import { flatten, type Pt } from './contour'
-import { MIN_WALL_MM, type Design } from './design'
+import { MIN_WALL_MM, type BorderSettings, type BorderStyle, type Design } from './design'
 import { fitCurve, type Cubic } from './fit'
 import { holeCenter } from './hole'
 import { buildOutline } from './shapes'
 
-export type BorderStyle = 'solid' | 'dashed' | 'dotted' | 'double'
-
-/** mm. `weight` is the number of closely spaced passes, since a deboss tip has one width. */
-export interface BorderSettings {
-  inset: number
-  style: BorderStyle
-  weight: 1 | 2 | 3
-}
+export type { BorderSettings, BorderStyle }
 
 /** One stroke of the border: smooth cubics, closed when it goes all the way round. */
 export interface BorderPath {
@@ -187,6 +180,9 @@ export function passInsets(b: BorderSettings): number[] {
   return out
 }
 
+// The status check, preview and export all ask for the same border on each change.
+const cache = new Map<string, { paths: BorderPath[]; collapsed: boolean }>()
+
 /**
  * The deboss border for a design: the outline inset by `inset` (smooth where the
  * outline is curved), drawn in the chosen style and number of passes, and
@@ -194,6 +190,17 @@ export function passInsets(b: BorderSettings): number[] {
  * `collapsed` is true when the inset leaves no room for a border at all.
  */
 export function borderPaths(d: Design, b: BorderSettings): { paths: BorderPath[]; collapsed: boolean } {
+  const key = JSON.stringify([d, b])
+  let out = cache.get(key)
+  if (!out) {
+    out = computeBorder(d, b)
+    if (cache.size > 8) cache.clear()
+    cache.set(key, out)
+  }
+  return out
+}
+
+function computeBorder(d: Design, b: BorderSettings): { paths: BorderPath[]; collapsed: boolean } {
   const outline = flatten(buildOutline(d), 32)
   const hole = holeCenter(d)
   const clear = d.hole.diameter / 2 + MIN_WALL_MM

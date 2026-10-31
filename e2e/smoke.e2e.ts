@@ -133,3 +133,31 @@ test('a count goes back to all that fit, by the All button or stepping below 1',
   await empty.blur()
   await expect(page.locator('.sheet-summary')).toHaveText('Cutting 1 of 15 · 1 turned')
 })
+
+test('a deboss border shows on the preview and exports as its own layer', async ({ page }) => {
+  const border = section(page, 'Border')
+  await expect(page.locator('#preview path.border')).toHaveCount(0)
+  await border.getByRole('checkbox').check()
+  await expect(page.locator('#preview path.border')).toHaveCount(1)
+  await expect(section(page, 'Save')).toBeVisible()
+
+  await border.getByLabel('Line').selectOption('dashed')
+  await border.getByLabel('Weight').selectOption('2')
+  const { svg } = await downloaded(page, () => page.getByRole('button', { name: 'Download SVG' }).click())
+  expect(svg).toContain('inkscape:label="Border"')
+  expect(svg).toMatch(/<path id="border" d="M[^"]+" fill="none"/)
+
+  await page.getByRole('button', { name: 'Sheet', exact: true }).click()
+  await expect(page.locator('#preview path.border')).toHaveCount(15)
+  const sheet = await downloaded(page, () => page.getByRole('button', { name: 'Download sheet SVG' }).click())
+  expect(sheet.svg.match(/<path id="border-/g)).toHaveLength(15)
+})
+
+test('a border too big for the tag warns and stays out of the export', async ({ page }) => {
+  await section(page, 'Border').getByRole('checkbox').check()
+  await setNumber(page, 'Border', 'Inset', '1')
+  await expect(page.locator('#status')).toContainText('border inset is too big')
+  await expect(page.locator('#preview path.border')).toHaveCount(0)
+  const { svg } = await downloaded(page, () => page.getByRole('button', { name: 'Download SVG' }).click())
+  expect(svg).not.toContain('Border')
+})

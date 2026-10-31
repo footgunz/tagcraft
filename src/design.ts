@@ -16,6 +16,20 @@ export interface Hole {
   offset: number
 }
 
+export type BorderStyle = 'solid' | 'dashed' | 'dotted' | 'double'
+
+/** Deboss border, mm. `weight` is the number of closely spaced passes, since a deboss tip has one width. */
+export interface BorderSettings {
+  inset: number
+  style: BorderStyle
+  weight: 1 | 2 | 3
+}
+
+export const BORDER_STYLES: BorderStyle[] = ['solid', 'dashed', 'dotted', 'double']
+
+/** A new border: 1/8" in from the edge, one solid line. */
+export const DEFAULT_BORDER: BorderSettings = { inset: 3.175, style: 'solid', weight: 1 }
+
 export interface Design {
   name: string
   width: number
@@ -24,6 +38,7 @@ export interface Design {
   shape: ShapeSettings
   hole: Hole
   points: Contour | null // bezier edits, normalized to the unit box; null = settings-driven
+  border: BorderSettings | null // null = no border
 }
 
 /** Minimum wall between the hole and the outline: 1/8 inch. */
@@ -45,12 +60,14 @@ export const RANGES: Record<string, { min: number; max: number; step: number }> 
   waveHeight: { min: 0, max: 76.2, step: 0.1 },
   diameter: { min: 1, max: 25.4, step: 0.05 },
   offset: { min: 0, max: 304.8, step: 0.1 },
+  borderInset: { min: 0.5, max: 25.4, step: 0.1 },
+  borderWeight: { min: 1, max: 3, step: 1 },
 }
 
 const HOLE: Hole = { diameter: 6.35, offset: 8.89 }
 
 function preset(name: string, width: number, height: number, lock: boolean, shape: ShapeSettings, hole: Hole = HOLE): Design {
-  return { name, width, height, lockProportions: lock, shape, hole: { ...hole }, points: null }
+  return { name, width, height, lockProportions: lock, shape, hole: { ...hole }, points: null, border: null }
 }
 
 function lockedHeight(width: number, shape: ShapeSettings): number {
@@ -161,6 +178,7 @@ export function normalizeDesign(input: unknown): Design {
   if (shape.kind === 'wavy') shape.waveHeight = range('waveHeight', s.waveHeight, 3, height / 4)
 
   const h = rec(d.hole)
+  const b = d.border === null || d.border === undefined ? null : rec(d.border)
   return {
     name: typeof d.name === 'string' && d.name.trim() ? d.name : GIFT.name,
     width,
@@ -172,5 +190,10 @@ export function normalizeDesign(input: unknown): Design {
       offset: range('offset', h.offset, HOLE.offset, Math.max(width, height)),
     },
     points,
+    border: b && {
+      inset: range('borderInset', b.inset, DEFAULT_BORDER.inset),
+      style: BORDER_STYLES.find((st) => st === b.style) ?? DEFAULT_BORDER.style,
+      weight: range('borderWeight', b.weight, DEFAULT_BORDER.weight, undefined, true) as 1 | 2 | 3,
+    },
   }
 }

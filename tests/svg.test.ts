@@ -102,3 +102,36 @@ function expectWellFormed(svg: string) {
   expect(stack).toEqual([])
   expect(svg.replace(/"[^"]*"/g, '')).not.toMatch(/[&"]/)
 }
+
+describe('border export', () => {
+  const gift = { ...PRESETS[0], border: { inset: 3.175, style: 'solid' as const, weight: 2 as const } }
+
+  it('adds a stroked Border layer after the Tag layer, only with a border', () => {
+    expect(designToSvg(PRESETS[0], 'in')).not.toContain('Border')
+    const svg = designToSvg(gift, 'in')
+    expect(svg.indexOf('inkscape:label="Tag"')).toBeLessThan(svg.indexOf('inkscape:label="Border"'))
+    expect(svg).toMatch(/<path id="border" d="M[^"]+" fill="none" stroke="#d62828"/)
+    expectWellFormed(svg)
+  })
+  it('puts every tag on a sheet in the Border layer, turned with its tag', () => {
+    const svg = sheetToSvg(gift, DEFAULT_SHEET, 'in')
+    const placements = layoutSheet(gift, DEFAULT_SHEET)
+    const borders = [...svg.matchAll(/<path id="border-(\d+)" d="([^"]+)"/g)]
+    expect(borders).toHaveLength(placements.length)
+    placements.forEach((p, i) => {
+      // On-curve points of the border stay inside the tag's slot.
+      const pts = borders[i][2].split(/(?=[MC])/).map((seg) => seg.match(/-?\d+(\.\d+)?/g)!.map(Number).slice(-2))
+      const [w, h] = p.rotation === 90 || p.rotation === 270 ? [gift.height, gift.width] : [gift.width, gift.height]
+      for (const [x, y] of pts) {
+        expect(x).toBeGreaterThan(p.x)
+        expect(x).toBeLessThan(p.x + w)
+        expect(y).toBeGreaterThan(p.y)
+        expect(y).toBeLessThan(p.y + h)
+      }
+    })
+    expectWellFormed(svg)
+  })
+  it('leaves the layer out when the inset is too big for the shape', () => {
+    expect(designToSvg({ ...gift, border: { ...gift.border, inset: 25 } }, 'in')).not.toContain('Border')
+  })
+})

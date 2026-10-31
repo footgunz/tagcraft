@@ -1,5 +1,5 @@
-import type { Design, EndStyle, ShapeSettings } from './design'
-import { PRESETS } from './design'
+import type { BorderSettings, BorderStyle, Design, EndStyle, ShapeSettings } from './design'
+import { DEFAULT_BORDER, PRESETS } from './design'
 import { settleDesign } from './hole'
 import { buildOutline, naturalAspect } from './shapes'
 import { layoutSheet, SHEET_PRESETS, type Sheet, type SheetSize } from './sheet'
@@ -141,6 +141,21 @@ function section(root: HTMLElement, title: string): HTMLElement {
   return s
 }
 
+/** A section whose heading is an on/off checkbox; its controls are dimmed while off. */
+function toggleSection(root: HTMLElement, title: string, on: boolean, onToggle: (on: boolean) => void): HTMLElement {
+  const s = section(root, '')
+  const h = s.querySelector('h2')!
+  const label = document.createElement('label')
+  const box = document.createElement('input')
+  box.type = 'checkbox'
+  box.checked = on
+  box.addEventListener('change', () => onToggle(box.checked))
+  label.append(box, title)
+  h.append(label)
+  s.classList.toggle('off', !on)
+  return s
+}
+
 function row(parent: HTMLElement, label: string, control: HTMLElement, suffix = ''): HTMLElement {
   const r = document.createElement('label')
   r.className = 'row'
@@ -245,6 +260,33 @@ export function syncHoleFields(root: HTMLElement, state: AppState): void {
   }
   set('hole-diameter', state.design.hole.diameter)
   set('hole-offset', state.design.hole.offset)
+}
+
+const STYLE_LABELS: [BorderStyle, string][] = [
+  ['solid', 'Solid'],
+  ['dashed', 'Dashed'],
+  ['dotted', 'Dotted'],
+  ['double', 'Double'],
+]
+const WEIGHT_LABELS: ['1' | '2' | '3', string][] = [
+  ['1', 'Thin (1 pass)'],
+  ['2', 'Medium (2 passes)'],
+  ['3', 'Bold (3 passes)'],
+]
+
+// The last border settings this session, so turning the border off and on keeps them.
+let lastBorder: BorderSettings = DEFAULT_BORDER
+
+/** The Border section: an optional deboss line inset from the edge. */
+function borderSection(root: HTMLElement, state: AppState, actions: PanelActions, rerender: () => void): void {
+  const { design: d, unit } = state
+  if (d.border) lastBorder = d.border
+  const b = d.border ?? lastBorder
+  const sec = toggleSection(root, 'Border', d.border !== null, (on) => actions.update((x) => ({ ...x, border: on ? lastBorder : null })))
+  const set = (patch: Partial<BorderSettings>) => actions.update((x) => ({ ...x, border: { ...(x.border ?? lastBorder), ...patch } }))
+  numberRow(sec, 'Inset', b.inset, unit, { length: true, id: 'border-inset' }, (v) => set({ inset: v }), rerender)
+  selectRow(sec, 'Line', STYLE_LABELS, b.style, (v) => set({ style: v }))
+  selectRow(sec, 'Weight', WEIGHT_LABELS, String(b.weight) as '1' | '2' | '3', (v) => set({ weight: Number(v) as 1 | 2 | 3 }))
 }
 
 /** The Sheet section: paper size, margin, gap, count, and what fits. */
@@ -491,6 +533,8 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
     actions.update((x) => ({ ...x, hole: { ...x.hole, diameter: v } })), rerender)
   numberRow(hole, holeLabels(s.kind).offset, d.hole.offset, unit, { length: true, id: 'hole-offset' }, (v) =>
     actions.update((x) => ({ ...x, hole: { ...x.hole, offset: v } })), rerender)
+
+  borderSection(root, state, actions, rerender)
 
   // Sheet: the paper the copies are laid out on. Only shown in the Sheet view.
   if (state.view === 'sheet') sheetSection(root, state, actions, rerender)
