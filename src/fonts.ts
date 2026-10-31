@@ -191,8 +191,6 @@ export function parseSvgFont(text: string, name: string): Font {
   const unitsPerEm = Number(face['units-per-em']) || 1000
   const ascent = Number(face.ascent) || unitsPerEm * 0.8
   const descent = Number(face.descent) || -unitsPerEm * 0.2
-  const capHeight = Number(face['cap-height']) || ascent * 0.7
-
   const glyphs = new Map<string, { advance: number; d: string; paths?: GlyphPath[] }>()
   const byName = new Map<string, string>()
   for (const m of text.matchAll(/<glyph\b[^>]*>/g)) {
@@ -203,6 +201,12 @@ export function parseSvgFont(text: string, name: string): Font {
     glyphs.set(ch, { advance: a['horiz-adv-x'] !== undefined ? Number(a['horiz-adv-x']) : defaultAdvance, d: a.d ?? '' })
     if (a['glyph-name']) byName.set(a['glyph-name'], ch)
   }
+
+  // Size is the cap height, so measure it from the H: the EMS and Hershey fonts
+  // declare 500 while their capitals reach about 660.
+  const H = glyphs.get('H')
+  const capTop = H ? Math.max(...parsePathData(H.d).flatMap((p) => [p.start.y, ...p.segs.map((s) => s.to.y)])) : 0
+  const capHeight = capTop > 0 ? capTop : Number(face['cap-height']) || ascent * 0.7
 
   // hkern: k is taken off the advance between the pair.
   const kerns = new Map<string, number>()
