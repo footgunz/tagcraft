@@ -9,6 +9,7 @@ import { DEFAULT_SHEET, layoutSheet, normalizeSheet } from './sheet'
 import { createStorage, defaultStore } from './storage'
 import { designToSvg, sheetSvgFilename, sheetToSvg, svgFilename } from './svg'
 import { checkForUpdate } from './update'
+import { DEFAULT_FONT, loadFont } from './fontlist'
 import { borderPaths } from './border'
 import type { Unit } from './units'
 
@@ -199,3 +200,5 @@ copyBtn.addEventListener('click', async () => {
 
 commit(storage.loadCurrent() ?? PRESETS[0])
 void checkForUpdate(__APP_VERSION__)
+// Fonts are parsed on first use; start on the default one so text is ready when needed.
+void loadFont(DEFAULT_FONT)

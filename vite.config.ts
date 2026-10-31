@@ -44,9 +44,13 @@ function appVersion(): string {
 
 const version = appVersion()
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   server: { port: 5173 },
   define: { __APP_VERSION__: JSON.stringify(version) },
-  // Everything is inlined into one HTML file that opens straight from disk.
-  plugins: [viteSingleFile(), renameOutput('tagcraft.html'), versionFile(version)],
-})
+  // Keep the other build's file when building one of the two variants.
+  build: { emptyOutDir: false },
+  // Everything, fonts included, is inlined into one HTML file that opens
+  // straight from disk. `--mode public` leaves out src/fonts-private so the
+  // file is safe to share.
+  plugins: [viteSingleFile(), renameOutput(mode === 'public' ? 'tagcraft-public.html' : 'tagcraft.html'), versionFile(version)],
+}))
