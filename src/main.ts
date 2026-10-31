@@ -85,7 +85,7 @@ function commit(next: Design, opts: { clamp?: boolean } = {}) {
     state.status = "Warning: the border inset is too big for this shape, so there's no border"
   else if (design.text && resolveFont(design.text.font).fellBack)
     state.status = `The font "${design.text.font}" isn't available here, so ${DEFAULT_FONT} is used`
-  else if (textBoxOverlapsHole(design)) state.status = 'Warning: the text box overlaps the hole'
+  else if (textBoxOverlapsHole(design)) state.status = 'The text box overlaps the hole, so text there is left out'
   else state.status = storage.available ? '' : STORAGE_MSG
   render()
   storage.saveCurrent(state.design)

@@ -5,7 +5,7 @@ import { holeCenter } from '../src/hole'
 import { draggedBox, snapAngle } from '../src/preview'
 import { DEFAULT_SHEET, layoutSheet } from '../src/sheet'
 import { designToSvg, sheetToSvg } from '../src/svg'
-import { boxCenter, defaultText, freeArea, rotateAbout, textBoxOverlapsHole, textPaths } from '../src/text'
+import { boxCenter, defaultText, freeArea, HOLE_TEXT_GAP, rotateAbout, textBoxOverlapsHole, textPaths } from '../src/text'
 
 const gift = PRESETS[0]
 const hexagon = PRESETS.find((p) => p.name === 'Hexagon')!
@@ -172,5 +172,41 @@ describe('text rotation', () => {
     expect(snapAngle(37, true)).toBe(30)
     expect(snapAngle(-179, false)).toBe(180)
     expect(snapAngle(12.345, false)).toBe(12.3)
+  })
+})
+
+describe('text and the hole', () => {
+  it('leaves out text over the hole, with a gap, and keeps the rest', async () => {
+    await loadFont(DEFAULT_FONT)
+    // A wide box across the whole tag, through the hole.
+    const d = normalizeDesign({ ...gift, text: { ...defaultText(gift), content: 'MMMMMMMMMMMMMMMMMMMMMMMMMMMM', size: 10, box: { x: 0, y: 10, w: gift.width, h: 15 } } })
+    expect(textBoxOverlapsHole(d)).toBe(true)
+    const c = holeCenter(d)
+    const clear = d.hole.diameter / 2 + HOLE_TEXT_GAP
+    const paths = textPaths(d)
+    // The over-wide word is cut at the box edge to about nine M strokes; the one over the hole goes.
+    expect(paths.length).toBeGreaterThan(4)
+    for (const p of paths) {
+      let from = p.start
+      for (const s of p.segs) {
+        for (let i = 0; i <= 10; i++) {
+          const t = i / 10
+          const u = 1 - t
+          const q =
+            s.kind === 'L'
+              ? { x: from.x + (s.to.x - from.x) * t, y: from.y + (s.to.y - from.y) * t }
+              : {
+                  x: u * u * u * from.x + 3 * u * u * t * s.c1.x + 3 * u * t * t * s.c2.x + t * t * t * s.to.x,
+                  y: u * u * u * from.y + 3 * u * u * t * s.c1.y + 3 * u * t * t * s.c2.y + t * t * t * s.to.y,
+                }
+          expect(Math.hypot(q.x - c.x, q.y - c.y)).toBeGreaterThanOrEqual(clear - 1e-6)
+        }
+        from = s.to
+      }
+    }
+    // Text on both sides of the hole is still there.
+    const xs = paths.flatMap((p) => [p.start, ...p.segs.map((s) => s.to)]).map((q) => q.x)
+    expect(Math.min(...xs)).toBeLessThan(c.x)
+    expect(Math.max(...xs)).toBeGreaterThan(c.x + 20)
   })
 })
