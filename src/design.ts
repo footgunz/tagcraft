@@ -50,6 +50,8 @@ export interface TextSettings {
   lineSpacing: number
   align: TextAlign
   box: TextBox
+  /** Degrees, clockwise, about the box's centre. */
+  rotation: number
 }
 
 export const TEXT_ALIGNS: TextAlign[] = ['left', 'center', 'right']
@@ -233,17 +235,52 @@ export function normalizeDesign(input: unknown): Design {
   }
 }
 
-/** Repair text settings, keeping the box inside the tag. */
+/** An angle in degrees as -180 < a <= 180. */
+export function wrapAngle(a: number): number {
+  const w = ((((a + 180) % 360) + 360) % 360) - 180
+  return w === -180 ? 180 : w
+}
+
+/**
+ * Keep a box (turned by `rotation` about its centre) inside a width × height tag,
+ * so no text is drawn off the tag: a turned box too big for the tag shrinks in
+ * proportion until its turned corners fit, and its centre moves just enough
+ * for them to stay on the tag.
+ */
+export function fitTextBox(box: TextBox, rotation: number, width: number, height: number): TextBox {
+  const r = (rotation * Math.PI) / 180
+  const c = Math.abs(Math.cos(r))
+  const s = Math.abs(Math.sin(r))
+  const span = (w: number, h: number) => ({ hw: (w * c + h * s) / 2, hh: (w * s + h * c) / 2 })
+  let { w, h } = box
+  const { hw: hw0, hh: hh0 } = span(w, h)
+  const k = Math.min(1, width / (2 * hw0), height / (2 * hh0))
+  if (k < 1) {
+    w = Math.max(Math.min(MIN_TEXT_BOX, width), w * k)
+    h = Math.max(Math.min(MIN_TEXT_BOX, height), h * k)
+  }
+  const { hw, hh } = span(w, h)
+  const fit = (v: number, half: number, size: number) => (half * 2 >= size ? size / 2 : Math.min(Math.max(v, half), size - half))
+  const cx = fit(box.x + box.w / 2, hw, width)
+  const cy = fit(box.y + box.h / 2, hh, height)
+  return { x: cx - w / 2, y: cy - h / 2, w, h }
+}
+
+/** Repair text settings, keeping the (turned) box inside the tag. */
 function normalizeText(t: Record<string, unknown>, width: number, height: number): TextSettings {
   const bx = rec(t.box)
-  const w = clampNum(bx.w, width - 2 * MIN_WALL_MM, Math.min(MIN_TEXT_BOX, width), width)
-  const h = clampNum(bx.h, height - 2 * MIN_WALL_MM, Math.min(MIN_TEXT_BOX, height), height)
+  const longest = Math.max(width, height)
+  const w = clampNum(bx.w, width - 2 * MIN_WALL_MM, Math.min(MIN_TEXT_BOX, width), longest)
+  const h = clampNum(bx.h, height - 2 * MIN_WALL_MM, Math.min(MIN_TEXT_BOX, height), longest)
+  const rotation = wrapAngle(clampNum(t.rotation, 0, -1e6, 1e6))
+  const box = fitTextBox({ x: clampNum(bx.x, (width - w) / 2, -longest, longest), y: clampNum(bx.y, (height - h) / 2, -longest, longest), w, h }, rotation, width, height)
   return {
     content: typeof t.content === 'string' ? t.content.slice(0, MAX_TEXT_LENGTH) : DEFAULT_TEXT,
     font: typeof t.font === 'string' && t.font.trim() ? t.font : DEFAULT_FONT,
     size: range('textSize', t.size, 5),
     lineSpacing: range('lineSpacing', t.lineSpacing, 1),
     align: TEXT_ALIGNS.find((a) => a === t.align) ?? 'center',
-    box: { x: clampNum(bx.x, (width - w) / 2, 0, width - w), y: clampNum(bx.y, (height - h) / 2, 0, height - h), w, h },
+    box,
+    rotation,
   }
 }

@@ -23,7 +23,7 @@ export function freeArea(d: Design): TextBox {
 /** A new text layer: default text, centred in the tag's free area, sized to fit it. */
 export function defaultText(d: Design): TextSettings {
   const box = freeArea(d)
-  return { content: DEFAULT_TEXT, font: DEFAULT_FONT, size: Math.min(5, box.h * 0.4), lineSpacing: 1, align: 'center', box }
+  return { content: DEFAULT_TEXT, font: DEFAULT_FONT, size: Math.min(5, box.h * 0.4), lineSpacing: 1, align: 'center', box, rotation: 0 }
 }
 
 // Layouts are cached per loaded font, so an uploaded font that replaces one of the same name lays out afresh.
@@ -39,7 +39,9 @@ export function textPaths(d: Design): TextPath[] {
   const key = JSON.stringify(t)
   let out = byText.get(key)
   if (!out) {
+    // Laid out and clipped in the box's own frame, then turned with the box.
     out = layoutText(font, t.content, t, t.box)
+    if (t.rotation) out = mapTextPaths(out, rotateAbout(boxCenter(t.box), t.rotation))
     if (byText.size > 16) byText.clear()
     byText.set(key, out)
   }
@@ -55,11 +57,22 @@ export function mapTextPaths(paths: TextPath[], f: (p: Pt) => Pt): TextPath[] {
   }))
 }
 
+export const boxCenter = (b: TextBox): Pt => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 })
+
+/** Turn points by `deg` clockwise (on screen, y down) about `c`. */
+export function rotateAbout(c: Pt, deg: number): (p: Pt) => Pt {
+  const r = (deg * Math.PI) / 180
+  const cos = Math.cos(r)
+  const sin = Math.sin(r)
+  return (p) => ({ x: c.x + (p.x - c.x) * cos - (p.y - c.y) * sin, y: c.y + (p.x - c.x) * sin + (p.y - c.y) * cos })
+}
+
 /** True when the text box reaches into the hole. */
 export function textBoxOverlapsHole(d: Design): boolean {
   if (!d.text) return false
   const { x, y, w, h } = d.text.box
-  const c = holeCenter(d)
+  // Work in the box's own frame: turn the hole's centre back by the box's rotation.
+  const c = rotateAbout(boxCenter(d.text.box), -d.text.rotation)(holeCenter(d))
   const nx = Math.min(Math.max(c.x, x), x + w)
   const ny = Math.min(Math.max(c.y, y), y + h)
   return Math.hypot(c.x - nx, c.y - ny) < d.hole.diameter / 2

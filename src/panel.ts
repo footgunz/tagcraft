@@ -346,6 +346,14 @@ function textSection(root: HTMLElement, state: AppState, actions: PanelActions, 
   numberRow(sec, 'Size', t.size, unit, { length: true, id: 'text-size' }, (v) => set({ size: v }), rerender)
   numberRow(sec, 'Spacing', t.lineSpacing, unit, { id: 'text-spacing', step: 0.05 }, (v) => set({ lineSpacing: v }), rerender)
   selectRow(sec, 'Align', ALIGN_LABELS, t.align, (v) => set({ align: v }))
+  numberRow(sec, 'Rotation', t.rotation, unit, { id: 'text-rotation', step: 1 }, (v) => set({ rotation: v }), rerender)
+  sec.querySelector('#text-rotation')!.closest('.row')!.querySelector('output')!.textContent = '\u00b0'
+}
+
+/** Refresh the rotation field while the text box is being turned (focus is never disturbed). */
+export function syncTextFields(root: HTMLElement, state: AppState): void {
+  const i = root.querySelector<HTMLInputElement>('#text-rotation')
+  if (i && state.design.text) i.value = String(Number(state.design.text.rotation.toFixed(1)))
 }
 
 const STYLE_LABELS: [BorderStyle, string][] = [

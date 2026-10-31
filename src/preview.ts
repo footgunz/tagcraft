@@ -1,5 +1,5 @@
 import { contourBounds, moveNode, type Contour, type Pt } from './contour'
-import { MIN_TEXT_BOX, type Design, type Hole, type TextBox } from './design'
+import { fitTextBox, MIN_TEXT_BOX, wrapAngle, type Design, type Hole, type TextBox } from './design'
 import { holeCenter, holeWallOk } from './hole'
 import { buildOutline, holeAxisOf } from './shapes'
 import { sheetDimensions } from './sheet'
@@ -11,6 +11,8 @@ export interface PreviewActions {
   setHole(h: Hole, final: boolean): void
   setPoints(c: Contour, final: boolean): void
   setTextBox(box: TextBox, final: boolean): void
+  /** Turn the text; `from` is the box at the start of the turn, so fitting it to the tag never compounds. */
+  setTextRotation(deg: number, final: boolean, from?: TextBox): void
 }
 
 const NS = 'http://www.w3.org/2000/svg'
@@ -40,15 +42,53 @@ type Drag = { pointerId: number; start: { x: number; y: number }; moved: boolean
   | { mode: 'resize' }
   | { mode: 'node'; index: number; part: 'p' | 'hIn' | 'hOut'; dx: number; dy: number }
   // Text box: `edge` is which sides follow the pointer (n, s, e, w); moving drags all of it.
-  | { mode: 'box'; edge: string; from: TextBox; at: Pt }
+  | { mode: 'box'; edge: string; from: TextBox; rotation: number; at: Pt }
+  // Turning the text box: the angle at the start, and the pointer's angle about the centre then.
+  | { mode: 'turn'; from: number; grab: number; box: TextBox }
 )
+
+/**
+ * The angle a turn ends on: within 2° of a multiple of 45° it snaps there, and
+ * with Shift held it snaps to steps of 15°.
+ */
+export function snapAngle(deg: number, shift: boolean): number {
+  const a = wrapAngle(deg)
+  if (shift) return wrapAngle(Math.round(a / 15) * 15)
+  const near = Math.round(a / 45) * 45
+  return Math.abs(a - near) <= 2 ? wrapAngle(near) : Math.round(a * 10) / 10
+}
 
 /**
  * The text box after dragging by (dx, dy): moved whole, or resized by the sides in
  * `edge`, kept inside the tag and no smaller than the minimum.
  */
-export function draggedBox(d: Design, from: TextBox, edge: string, dx: number, dy: number): TextBox {
+export function draggedBox(d: Design, from: TextBox, edge: string, dx: number, dy: number, rotation = 0): TextBox {
   const min = (side: number) => Math.min(MIN_TEXT_BOX, side)
+  if (!edge && rotation) return fitTextBox({ ...from, x: from.x + dx, y: from.y + dy }, rotation, d.width, d.height)
+  if (rotation) {
+    // A turned box resizes along its own sides: work in its frame, around its centre.
+    const r = (rotation * Math.PI) / 180
+    const cos = Math.cos(r)
+    const sin = Math.sin(r)
+    const lx = dx * cos + dy * sin
+    const ly = -dx * sin + dy * cos
+    const most = Math.max(d.width, d.height)
+    let l = -from.w / 2
+    let rt = from.w / 2
+    let t = -from.h / 2
+    let b = from.h / 2
+    if (edge.includes('w')) l = Math.min(Math.max(l + lx, rt - most), rt - MIN_TEXT_BOX)
+    if (edge.includes('e')) rt = Math.max(Math.min(rt + lx, l + most), l + MIN_TEXT_BOX)
+    if (edge.includes('n')) t = Math.min(Math.max(t + ly, b - most), b - MIN_TEXT_BOX)
+    if (edge.includes('s')) b = Math.max(Math.min(b + ly, t + most), t + MIN_TEXT_BOX)
+    const ox = (l + rt) / 2
+    const oy = (t + b) / 2
+    const cx = from.x + from.w / 2 + ox * cos - oy * sin
+    const cy = from.y + from.h / 2 + ox * sin + oy * cos
+    const w = rt - l
+    const h = b - t
+    return fitTextBox({ x: cx - w / 2, y: cy - h / 2, w, h }, rotation, d.width, d.height)
+  }
   if (!edge) {
     return {
       ...from,
@@ -110,9 +150,18 @@ function attach(root: HTMLElement) {
       e.preventDefault()
       return
     }
+    if (kind === 'turn') {
+      if (!d.text || cur.state.editing) return
+      const c = { x: d.text.box.x + d.text.box.w / 2, y: d.text.box.y + d.text.box.h / 2 }
+      const grab = (Math.atan2(p.y - c.y, p.x - c.x) * 180) / Math.PI
+      drags.set(root, { mode: 'turn', pointerId: e.pointerId, start, moved: false, from: d.text.rotation, grab, box: d.text.box })
+      root.setPointerCapture(e.pointerId)
+      e.preventDefault()
+      return
+    }
     if (kind === 'box') {
       if (!d.text || cur.state.editing) return
-      drags.set(root, { mode: 'box', pointerId: e.pointerId, start, moved: false, edge: target.getAttribute('data-edge') ?? '', from: d.text.box, at: p })
+      drags.set(root, { mode: 'box', pointerId: e.pointerId, start, moved: false, edge: target.getAttribute('data-edge') ?? '', from: d.text.box, rotation: d.text.rotation, at: p })
       root.setPointerCapture(e.pointerId)
       e.preventDefault()
       return
@@ -136,7 +185,13 @@ function attach(root: HTMLElement) {
       const to: Pt = { x: p.x + drag.dx, y: p.y + drag.dy }
       cur.actions.setPoints(moveNode(buildOutline(cur.state.design), drag.index, drag.part, to), false)
     } else if (p && drag.mode === 'box') {
-      cur.actions.setTextBox(draggedBox(cur.state.design, drag.from, drag.edge, p.x - drag.at.x, p.y - drag.at.y), false)
+      cur.actions.setTextBox(draggedBox(cur.state.design, drag.from, drag.edge, p.x - drag.at.x, p.y - drag.at.y, drag.rotation), false)
+    } else if (p && drag.mode === 'turn') {
+      const t = cur.state.design.text
+      if (!t) return
+      const c = { x: drag.box.x + drag.box.w / 2, y: drag.box.y + drag.box.h / 2 }
+      const now = (Math.atan2(p.y - c.y, p.x - c.x) * 180) / Math.PI
+      cur.actions.setTextRotation(snapAngle(drag.from + now - drag.grab, e.shiftKey), false, drag.box)
     } else if (p) cur.actions.setHole(holeFrom(cur.state.design, drag, p, drag.mode === 'move' ? drag.grab : 0), false)
   })
   const end = (e: PointerEvent) => {
@@ -151,6 +206,8 @@ function attach(root: HTMLElement) {
     if (drag.mode === 'node') cur.actions.setPoints(buildOutline(cur.state.design), true)
     else if (drag.mode === 'box') {
       if (cur.state.design.text) cur.actions.setTextBox(cur.state.design.text.box, true)
+    } else if (drag.mode === 'turn') {
+      if (cur.state.design.text) cur.actions.setTextRotation(cur.state.design.text.rotation, true, drag.box)
     } else cur.actions.setHole(cur.state.design.hole, true)
   }
   root.addEventListener('pointerup', end)
@@ -219,8 +276,17 @@ export function renderPreview(root: HTMLElement, state: AppState, actions: Previ
   // its handles to resize. Drawn before the hole so the hole's handles win where they overlap.
   if (d.text && !state.editing) {
     const { x, y, w: bw, h: bh } = d.text.box
-    svg.append(el('rect', { class: 'textbox', 'data-drag': 'box', x, y, width: bw, height: bh }))
+    // The box and its handles turn with the text, about the box's centre.
+    const g = el('g', { transform: `rotate(${d.text.rotation} ${x + bw / 2} ${y + bh / 2})` })
+    svg.append(g)
+    g.append(el('rect', { class: 'textbox', 'data-drag': 'box', x, y, width: bw, height: bh }))
     const s = big * 0.012
+    // The turn handle: a dot on a stalk above the top edge.
+    const stalk = big * 0.05
+    g.append(
+      el('line', { class: 'turn-stalk', x1: x + bw / 2, y1: y, x2: x + bw / 2, y2: y - stalk }),
+      el('circle', { class: 'turn-handle', 'data-drag': 'turn', cx: x + bw / 2, cy: y - stalk, r: s * 1.3 }),
+    )
     const spots: [string, number, number][] = [
       ['nw', x, y],
       ['n', x + bw / 2, y],
@@ -232,7 +298,7 @@ export function renderPreview(root: HTMLElement, state: AppState, actions: Previ
       ['w', x, y + bh / 2],
     ]
     for (const [edge, hx, hy] of spots)
-      svg.append(el('rect', { class: `box-handle ${edge}`, 'data-drag': 'box', 'data-edge': edge, x: hx - s, y: hy - s, width: 2 * s, height: 2 * s }))
+      g.append(el('rect', { class: `box-handle ${edge}`, 'data-drag': 'box', 'data-edge': edge, x: hx - s, y: hy - s, width: 2 * s, height: 2 * s }))
   }
 
   // Dimension labels.

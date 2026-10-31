@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_FONT, MIN_WALL_MM, normalizeDesign, PRESETS, type Design } from '../src/design'
+import { DEFAULT_FONT, fitTextBox, MIN_WALL_MM, normalizeDesign, PRESETS, wrapAngle, type Design } from '../src/design'
 import { loadFont } from '../src/fontlist'
 import { holeCenter } from '../src/hole'
-import { draggedBox } from '../src/preview'
+import { draggedBox, snapAngle } from '../src/preview'
 import { DEFAULT_SHEET, layoutSheet } from '../src/sheet'
 import { designToSvg, sheetToSvg } from '../src/svg'
-import { defaultText, freeArea, textBoxOverlapsHole, textPaths } from '../src/text'
+import { boxCenter, defaultText, freeArea, rotateAbout, textBoxOverlapsHole, textPaths } from '../src/text'
 
 const gift = PRESETS[0]
 const hexagon = PRESETS.find((p) => p.name === 'Hexagon')!
@@ -100,5 +100,77 @@ describe('draggedBox', () => {
     expect(draggedBox(gift, from, 'e', -100, 0).w).toBeCloseTo(3)
     expect(draggedBox(gift, from, 'n', 0, -100).y).toBe(0)
     expect(draggedBox(gift, from, 'e', 100, 0).w).toBeCloseTo(gift.width - 20)
+  })
+})
+
+describe('text rotation', () => {
+  const corners = (b: { x: number; y: number; w: number; h: number }, deg: number) => {
+    const turn = rotateAbout(boxCenter(b), deg)
+    return [
+      { x: b.x, y: b.y },
+      { x: b.x + b.w, y: b.y },
+      { x: b.x + b.w, y: b.y + b.h },
+      { x: b.x, y: b.y + b.h },
+    ].map(turn)
+  }
+  const onTag = (d: Design, b: { x: number; y: number; w: number; h: number }, deg: number) =>
+    corners(b, deg).every((p) => p.x >= -1e-6 && p.x <= d.width + 1e-6 && p.y >= -1e-6 && p.y <= d.height + 1e-6)
+
+  it('wraps angles to -180 < a <= 180', () => {
+    expect([0, 90, 180, -180, 190, 360, -270, 725].map(wrapAngle)).toEqual([0, 90, 180, 180, -170, 0, 90, 5])
+  })
+  it('keeps a turned box on the tag, shrinking it when it would not fit', () => {
+    const t = normalizeDesign({ ...withText(gift), text: { ...defaultText(gift), rotation: -20 } }).text!
+    expect(t.rotation).toBe(-20)
+    expect(onTag(gift, t.box, -20)).toBe(true)
+    // Turned, the default box (57.8 × 31.75 mm) is taller than the 38.1 mm tag, so it shrinks in proportion.
+    expect(t.box.w / t.box.h).toBeCloseTo(defaultText(gift).box.w / defaultText(gift).box.h, 6)
+    expect(t.box.w).toBeLessThan(defaultText(gift).box.w)
+  })
+  it('only moves a turned box that fits, without shrinking it', () => {
+    const b = fitTextBox({ x: 60, y: 0, w: 20, h: 10 }, 30, gift.width, gift.height)
+    expect(b.w).toBe(20)
+    expect(b.h).toBe(10)
+    expect(onTag(gift, b, 30)).toBe(true)
+  })
+  it('turns the text with its box', async () => {
+    await loadFont(DEFAULT_FONT)
+    const d = normalizeDesign({ ...withText(gift), text: { ...defaultText(gift), content: 'Hello there, friend', rotation: 35 } })
+    const t = d.text!
+    const back = rotateAbout(boxCenter(t.box), -t.rotation)
+    for (const p of textPaths(d)) for (const q of [p.start, ...p.segs.map((s) => s.to)].map(back)) {
+      expect(q.x).toBeGreaterThanOrEqual(t.box.x - 1e-6)
+      expect(q.x).toBeLessThanOrEqual(t.box.x + t.box.w + 1e-6)
+      expect(q.y).toBeGreaterThanOrEqual(t.box.y - 1e-6)
+      expect(q.y).toBeLessThanOrEqual(t.box.y + t.box.h + 1e-6)
+    }
+  })
+  it('checks the hole against the turned box', () => {
+    const text = { ...defaultText(gift), box: { x: 14, y: 14, w: 30, h: 10 }, rotation: 0 }
+    expect(textBoxOverlapsHole({ ...gift, text })).toBe(false)
+    // Turned 90° about its centre (29, 19), the box spans x 24..34: still clear of the hole at x ≈ 9.
+    expect(textBoxOverlapsHole({ ...gift, text: { ...text, rotation: 90 } })).toBe(false)
+    // A longer box turned slightly reaches back over the hole.
+    expect(textBoxOverlapsHole({ ...gift, text: { ...text, box: { x: 2, y: 14, w: 60, h: 10 }, rotation: 5 } })).toBe(true)
+  })
+  it('resizes a turned box along its own sides', () => {
+    // Turned 90°, the box's right side faces down: dragging it down 5 mm makes it 5 mm longer,
+    // with its centre moving down 2.5 mm.
+    const from = { x: 20, y: 10, w: 20, h: 10 }
+    const b = draggedBox(gift, from, 'e', 0, 5, 90)
+    expect(b.w).toBeCloseTo(25, 6)
+    expect(b.h).toBeCloseTo(10, 6)
+    expect(boxCenter(b).x).toBeCloseTo(30, 6)
+    expect(boxCenter(b).y).toBeCloseTo(17.5, 6)
+    // Moving a turned box drags its centre.
+    const m = draggedBox(gift, from, '', 4, 1, 90)
+    expect(boxCenter(m)).toEqual({ x: 34, y: 16 })
+  })
+  it('snaps turns to 45° when close, and to 15° steps with Shift', () => {
+    expect(snapAngle(44, false)).toBe(45)
+    expect(snapAngle(40, false)).toBe(40)
+    expect(snapAngle(37, true)).toBe(30)
+    expect(snapAngle(-179, false)).toBe(180)
+    expect(snapAngle(12.345, false)).toBe(12.3)
   })
 })

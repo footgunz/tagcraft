@@ -613,3 +613,18 @@ button.link-button {
   width: 100%;
   margin-bottom: 6px;
 }
+
+#preview .turn-stalk {
+  stroke: #1f6feb;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+#preview .turn-handle {
+  fill: #1f6feb;
+  stroke: #fff;
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+  cursor: grab;
+}

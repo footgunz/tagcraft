@@ -222,3 +222,42 @@ test('a text box over the hole warns', async ({ page }) => {
   await page.mouse.up()
   await expect(page.locator('#status')).toContainText('text box overlaps the hole')
 })
+
+test('text turns by its handle or the Rotation field, staying on the tag', async ({ page }) => {
+  await section(page, 'Text').getByRole('checkbox').check()
+  const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('tagcraft:current')!).text)
+  const start = await stored()
+  expect(start.rotation).toBe(0)
+
+  // Turn away and back in one drag: the box ends the size it started.
+  const h = (await page.locator('#preview .turn-handle').boundingBox())!
+  const c = (await page.locator('#preview rect.textbox').boundingBox())!
+  const cx = c.x + c.width / 2
+  const cy = c.y + c.height / 2
+  await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(cx + 120, cy - 40, { steps: 6 })
+  const mid = await page.locator('#text-rotation').inputValue()
+  expect(Math.abs(Number(mid))).toBeGreaterThan(30)
+  await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2, { steps: 6 })
+  await page.mouse.up()
+  const back = await stored()
+  expect(Math.abs(back.rotation)).toBeLessThan(1)
+  expect(back.box.w).toBeCloseTo(start.box.w, 1)
+  expect(back.box.h).toBeCloseTo(start.box.h, 1)
+
+  // A quarter turn from the field: the text runs up the tag, and the box fits on it.
+  await setNumber(page, 'Text', 'Rotation', '90')
+  const turned = await stored()
+  expect(turned.rotation).toBe(90)
+  const text = (await page.locator('#preview path.text').boundingBox())!
+  expect(text.height).toBeGreaterThan(text.width)
+  const tag = (await page.locator('#preview path.tag').boundingBox())!
+  const box = (await page.locator('#preview rect.textbox').boundingBox())!
+  expect(box.y).toBeGreaterThanOrEqual(tag.y - 1)
+  expect(box.y + box.height).toBeLessThanOrEqual(tag.y + tag.height + 1)
+
+  const { svg } = await downloaded(page, () => page.getByRole('button', { name: 'Download SVG' }).click())
+  expect(svg).toMatch(/<path id="text" d="M[^"]+"/)
+  expect(svg).not.toContain('rotate(')
+})
