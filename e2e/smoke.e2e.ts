@@ -105,3 +105,31 @@ test('sheet settings survive a reload', async ({ page }) => {
   await expect(section(page, 'Sheet').getByLabel('Count')).toHaveValue('4')
   await expect(page.locator('#preview path.tag')).toHaveCount(4)
 })
+
+test('a count goes back to all that fit, by the All button or stepping below 1', async ({ page }) => {
+  await page.getByRole('button', { name: 'Sheet', exact: true }).click()
+  const count = section(page, 'Sheet').getByLabel('Count')
+  await expect(count).toHaveAttribute('placeholder', 'All that fit (15)')
+  await expect(section(page, 'Sheet').getByRole('button', { name: 'All' })).toHaveCount(0)
+
+  await setNumber(page, 'Sheet', 'Count', '3')
+  await expect(page.locator('.sheet-summary')).toHaveText('Cutting 3 of 15 · 3 turned')
+  await section(page, 'Sheet').getByRole('button', { name: 'All' }).click()
+  await expect(page.locator('.sheet-summary')).toHaveText('15 tags fit · 15 turned')
+  await expect(section(page, 'Sheet').getByLabel('Count')).toHaveValue('')
+
+  await setNumber(page, 'Sheet', 'Count', '1')
+  const one = section(page, 'Sheet').getByLabel('Count')
+  await one.focus()
+  await page.keyboard.press('ArrowDown')
+  await one.blur()
+  await expect(page.locator('.sheet-summary')).toHaveText('15 tags fit · 15 turned')
+  await expect(section(page, 'Sheet').getByLabel('Count')).toHaveValue('')
+
+  // From empty, the up arrow starts counting at 1.
+  const empty = section(page, 'Sheet').getByLabel('Count')
+  await empty.focus()
+  await page.keyboard.press('ArrowUp')
+  await empty.blur()
+  await expect(page.locator('.sheet-summary')).toHaveText('Cutting 1 of 15 · 1 turned')
+})
