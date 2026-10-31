@@ -5,3 +5,7 @@ dist/
 docs/superpowers/
 test-results/
 playwright-report/
+
+# Personal-use fonts stay local (see src/fonts-private/README.md).
+src/fonts-private/*
+!src/fonts-private/README.md

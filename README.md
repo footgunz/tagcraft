@@ -41,7 +41,13 @@ Then open http://localhost:5173. Changes reload live.
 npm run build
 ```
 
-Type-checks, then writes `dist/tagcraft.html`. Rebuild after changing code; `dist/` is not committed.
+Type-checks, then writes `dist/tagcraft.html`, including your private fonts (see [Fonts](#fonts)). Rebuild after changing code; `dist/` is not committed.
+
+```bash
+npm run build:public
+```
+
+Writes `dist/tagcraft-public.html` with the open-licensed fonts only, safe to share. Releases publish this one. `npm run check:public` confirms a public build never picks up private fonts.
 
 The app shows its version in small text next to **Source code**, so you can tell builds apart. A release build shows the release's tag (for example `v0.0.4`, linking to its release notes); any other build shows `git describe`, for example `v0.0.3-3-gbdac605` (three commits after `v0.0.3`). Set `TAGCRAFT_VERSION` to override it.
 
@@ -70,6 +76,30 @@ npm run docs:screenshots
 ```
 
 Add shot names (for example `-- hole sheet`) to redo only those. It uses Playwright's Chromium (`npx playwright install chromium`); set `CHROME_PATH` to use another Chrome or Edge.
+
+## Fonts
+
+Text on a tag is drawn with a cutter's pen, so the bundled fonts are **single-line** ("stroke") fonts: the pen traces each letter once. Ordinary outline fonts (TTF, OTF, WOFF) work too, but a pen draws them as hollow, outlined letters.
+
+Fonts live in two folders and appear in the font list automatically, named after the file:
+
+| Folder | What goes there | Included in |
+| --- | --- | --- |
+| `src/fonts/` | Open-licensed single-line SVG fonts that may be redistributed | Both builds |
+| `src/fonts-private/` | Personal-use fonts (`.ttf`, `.otf`, `.woff`, or single-line `.svg`), ignored by git | `npm run build` and dev only |
+
+Put a font's license in the matching `licenses/` folder, named `<font file name>-<anything>.txt` (for example `EMS Tech-OFL.txt`); the app shows it under **About this font**. Fonts can also be added in the app for the current session.
+
+Bundled fonts and where they come from:
+
+| Font | Style | License | Source |
+| --- | --- | --- | --- |
+| Relief SingleLine (default) | Sans | SIL OFL 1.1 | [isdat-type/Relief-SingleLine](https://github.com/isdat-type/Relief-SingleLine) |
+| EMS Readability | Light sans | SIL OFL 1.1 | [Inkscape Hershey Text fonts](https://gitlab.com/inkscape/extensions/-/tree/master/svg_fonts) |
+| EMS Allure | Script | SIL OFL 1.1 | same |
+| EMS Tech | Technical | SIL OFL 1.1 | same |
+| Hershey Serif | Serif | Hershey Fonts license | same |
+| Hershey Script | Script | Hershey Fonts license | same |
 
 ## How it works
 

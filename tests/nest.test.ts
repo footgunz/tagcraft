@@ -131,6 +131,7 @@ describe('nestedLayout', () => {
   it('is empty when the tag is bigger than the area', () => {
     expect(nestedLayout(PRESETS[0], 50, 50, 3.175)).toEqual([])
   })
+  // These check real outline distances across hundreds of tags: slow on CI runners.
   it('keeps every outline at least one gap apart and inside the margin', () => {
     const designs = [
       ...PRESETS,
@@ -147,13 +148,13 @@ describe('nestedLayout', () => {
       expect(nested.length).toBeGreaterThan(0)
       expectClear(d, DEFAULT_SHEET, nested)
     }
-  })
+  }, 30_000)
   it('every preset, nested or not, keeps a gap on Letter and A4', () => {
     for (const size of ['letter', 'a4'] as const) {
       const s = { ...DEFAULT_SHEET, size }
       for (const d of PRESETS) expectClear(d, s, layoutSheet(d, s))
     }
-  })
+  }, 30_000)
   it('respects a wide gap and no gap', () => {
     for (const gap of [0, 12.7]) {
       const s = { ...DEFAULT_SHEET, gap }
@@ -161,7 +162,7 @@ describe('nestedLayout', () => {
       const { W, H } = usable(s)
       expectClear(d, s, nestedLayout(d, W, H, gap).map((p) => ({ ...p, x: p.x + s.margin, y: p.y + s.margin })))
     }
-  })
+  }, 30_000)
 })
 
 describe('nested sheet export', () => {

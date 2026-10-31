@@ -1,5 +1,5 @@
 # When a release is published in the GitHub UI, build the app from the release's tag, then:
-#   - attach the single-file app to the release as tagcraft-<tag>.html
+#   - attach the public single-file app (open-licensed fonts only) to the release as tagcraft-<tag>.html
 #   - publish it to GitHub Pages
 # It can also be run by hand from the Actions tab; that only updates Pages.
 name: Publish release
@@ -32,7 +32,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run build
+      # The public build: open-licensed fonts only, safe to publish.
+      - run: npm run build:public
         env:
           # The version shown in the app: the release's tag (empty on a manual run).
           TAGCRAFT_VERSION: ${{ github.event.release.tag_name }}
@@ -42,12 +43,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          cp dist/tagcraft.html "tagcraft-${TAG}.html"
+          cp dist/tagcraft-public.html "tagcraft-${TAG}.html"
           gh release upload "$TAG" "tagcraft-${TAG}.html" --clobber --repo "$GITHUB_REPOSITORY"
       - name: Stage site
         run: |
           mkdir -p _site
-          cp dist/tagcraft.html _site/index.html
+          cp dist/tagcraft-public.html _site/index.html
           # Read by the app to notice a cached older copy and load this release.
           cp dist/version.json _site/version.json
       - uses: actions/upload-pages-artifact@v5
