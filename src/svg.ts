@@ -6,6 +6,8 @@ import { holeContour } from './hole'
 import { orientPoint } from './nest'
 import { buildOutline } from './shapes'
 import { layoutSheet, sheetDimensions, type Placement, type Sheet } from './sheet'
+import { mapTextPaths, textPaths } from './text'
+import { textPathData } from './textlayout'
 import { fromMm, type Unit } from './units'
 
 function num(v: number, digits = 3): string {
@@ -26,20 +28,24 @@ export function tagPathData(d: Design): string {
   return `${contourToPathData(buildOutline(d))} ${contourToPathData(holeContour(d))}`
 }
 
-/** Stroke color of the Border layer, so cutter software can tell it from the cut. */
+/** Stroke colors of the Text (pen) and Border (deboss) layers, so cutter software can tell them from the cut. */
+export const TEXT_COLOR = '#1f6feb'
 export const BORDER_COLOR = '#d62828'
 
-/** The document: the Tag layer (cut), then a Border layer (deboss) when there are border strokes. */
-function svgDocument(width: number, height: number, unit: Unit, paths: string[], border: string[] = []): string {
+/** The document: the Tag layer (cut), then Text (pen) and Border (deboss) layers when they have strokes. */
+function svgDocument(width: number, height: number, unit: Unit, paths: string[], text: string[] = [], border: string[] = []): string {
   const w = `${num(fromMm(width, unit))}${unit}`
   const h = `${num(fromMm(height, unit))}${unit}`
   const viewBox = `0 0 ${num(width)} ${num(height)}`
+  const layer = (id: string, label: string, items: string[]) =>
+    items.length ? [`  <g id="layer-${id}" inkscape:groupmode="layer" inkscape:label="${label}">`, ...items, `  </g>`] : []
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${esc(w)}" height="${esc(h)}" viewBox="${esc(viewBox)}">`,
     `  <g id="layer-tag" inkscape:groupmode="layer" inkscape:label="Tag">`,
     ...paths,
     `  </g>`,
-    ...(border.length ? [`  <g id="layer-border" inkscape:groupmode="layer" inkscape:label="Border">`, ...border, `  </g>`] : []),
+    ...layer('text', 'Text', text),
+    ...layer('border', 'Border', border),
     `</svg>`,
     '',
   ].join('\n')
@@ -58,9 +64,22 @@ export function borderData(d: Design): string {
   return d.border ? borderPathData(borderPaths(d, d.border).paths) : ''
 }
 
+/** The design's text as path data in tag mm, or '' without text (or while its font loads). */
+export function textData(d: Design): string {
+  return textPathData(textPaths(d))
+}
+
 export function designToSvg(d: Design, unit: Unit): string {
+  const text = textData(d)
   const border = borderData(d)
-  return svgDocument(d.width, d.height, unit, [pathElement('tag', tagPathData(d))], border ? [strokeElement('border', border, BORDER_COLOR)] : [])
+  return svgDocument(
+    d.width,
+    d.height,
+    unit,
+    [pathElement('tag', tagPathData(d))],
+    text ? [strokeElement('text', text, TEXT_COLOR)] : [],
+    border ? [strokeElement('border', border, BORDER_COLOR)] : [],
+  )
 }
 
 /** Moves a tag-space point into its slot on the sheet, turned clockwise by the placement's rotation. */
@@ -85,8 +104,16 @@ export function sheetTagPathData(d: Design, sheet: Sheet): string[] {
 export function sheetToSvg(d: Design, sheet: Sheet, unit: Unit): string {
   const { width, height } = sheetDimensions(sheet)
   const paths = sheetTagPathData(d, sheet).map((data, i) => pathElement(`tag-${i + 1}`, data))
+  const text = sheetTextPathData(d, sheet).map((data, i) => strokeElement(`text-${i + 1}`, data, TEXT_COLOR))
   const border = sheetBorderPathData(d, sheet).map((data, i) => strokeElement(`border-${i + 1}`, data, BORDER_COLOR))
-  return svgDocument(width, height, unit, paths, border)
+  return svgDocument(width, height, unit, paths, text, border)
+}
+
+/** Each tag's text on the sheet, placed and turned with its tag; empty without text. */
+export function sheetTextPathData(d: Design, sheet: Sheet): string[] {
+  const paths = textPaths(d)
+  if (!paths.length) return []
+  return layoutSheet(d, sheet).map((p) => textPathData(mapTextPaths(paths, placer(d, p))))
 }
 
 /** Each tag's border on the sheet, placed and turned with its tag; empty without a border. */

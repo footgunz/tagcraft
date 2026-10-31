@@ -1,3 +1,4 @@
+import { DEFAULT_FONT } from './design'
 import { parseSvgFont, readFont, type Font } from './fonts'
 
 // ---------------------------------------------------------------------------
@@ -21,8 +22,7 @@ const privateLicenses = (
   import.meta.env.MODE === 'public' ? {} : import.meta.glob('./fonts-private/licenses/*.txt', { eager: true, query: '?raw', import: 'default' })
 ) as Record<string, string>
 
-/** The font a new text layer uses, and the fallback for a font the app doesn't have. */
-export const DEFAULT_FONT = 'Relief SingleLine'
+export { DEFAULT_FONT }
 
 export type FontGroup = 'bundled' | 'private' | 'added'
 

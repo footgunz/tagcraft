@@ -1,10 +1,12 @@
-import type { BorderSettings, BorderStyle, Design, EndStyle, ShapeSettings } from './design'
+import type { BorderSettings, BorderStyle, Design, EndStyle, ShapeSettings, TextAlign, TextSettings } from './design'
 import { DEFAULT_BORDER, PRESETS } from './design'
 import { settleDesign } from './hole'
 import { buildOutline, naturalAspect } from './shapes'
 import { layoutSheet, SHEET_PRESETS, type Sheet, type SheetSize } from './sheet'
 import { contourBounds } from './contour'
+import { fontEntries, GROUP_LABELS, licenseFor, resolveFont, type FontGroup } from './fontlist'
 import { tagPathData } from './svg'
+import { defaultText } from './text'
 import { fromMm, toMm, type Unit } from './units'
 
 export interface AppState {
@@ -31,6 +33,9 @@ export interface PanelActions {
   saveAs(name: string): void
   removeSaved(name: string): void
   updateSheet(patch: (s: Sheet) => Sheet): void
+  /** Change the text; `live` updates the preview without rebuilding the panel (while typing). */
+  updateText(patch: (t: TextSettings) => TextSettings, live?: boolean): void
+  addFont(file: File): void
 }
 
 /** Trimmed, case-insensitive name comparison (matches storage's rule). */
@@ -260,6 +265,87 @@ export function syncHoleFields(root: HTMLElement, state: AppState): void {
   }
   set('hole-diameter', state.design.hole.diameter)
   set('hole-offset', state.design.hole.offset)
+}
+
+const ALIGN_LABELS: [TextAlign, string][] = [
+  ['left', 'Left'],
+  ['center', 'Center'],
+  ['right', 'Right'],
+]
+
+// The last text settings this session, so turning text off and on keeps them.
+let lastText: TextSettings | null = null
+
+/** "About this font": what kind of font it is and the license that ships with it. */
+function fontInfo(name: string, singleLine: boolean): HTMLDetailsElement {
+  const box = document.createElement('details')
+  box.className = 'font-info'
+  const summary = document.createElement('summary')
+  summary.textContent = 'About this font'
+  const kind = document.createElement('p')
+  kind.textContent = singleLine
+    ? 'A single-line font: a pen traces each letter once.'
+    : 'An outline font: a pen draws the outline of each letter, so letters come out hollow.'
+  box.append(summary, kind)
+  const license = licenseFor(name)
+  const p = document.createElement(license ? 'pre' : 'p')
+  p.className = license ? 'license' : 'muted'
+  p.textContent = license ?? 'No license file comes with this font.'
+  box.append(p)
+  return box
+}
+
+/** The Text section: one text box per tag, drawn with a pen; one type style for all of it. */
+function textSection(root: HTMLElement, state: AppState, actions: PanelActions, rerender: () => void): void {
+  const { design: d, unit } = state
+  if (d.text) lastText = d.text
+  const t = d.text ?? lastText ?? defaultText(d)
+  const sec = toggleSection(root, 'Text', d.text !== null, (on) => actions.update((x) => ({ ...x, text: on ? (lastText ?? defaultText(x)) : null })))
+  const set = (patch: Partial<TextSettings>) => actions.updateText((x) => ({ ...x, ...patch }))
+
+  const area = document.createElement('textarea')
+  area.id = 'text-content'
+  area.rows = 3
+  area.value = t.content
+  area.placeholder = 'Your text'
+  area.setAttribute('aria-label', 'Text')
+  area.addEventListener('input', () => actions.updateText((x) => ({ ...x, content: area.value }), true))
+  area.addEventListener('change', () => set({ content: area.value }))
+  sec.append(area)
+
+  const fonts = fontEntries()
+  const sel = document.createElement('select')
+  sel.className = 'font-select'
+  sel.id = 'text-font'
+  for (const g of ['bundled', 'private', 'added'] as FontGroup[]) {
+    const inGroup = fonts.filter((f) => f.group === g)
+    if (!inGroup.length) continue
+    const group = document.createElement('optgroup')
+    group.label = GROUP_LABELS[g]
+    for (const f of inGroup) group.append(new Option(f.singleLine ? f.name : `${f.name} (outline)`, f.name))
+    sel.append(group)
+  }
+  const current = resolveFont(t.font).name
+  sel.value = current
+  sel.addEventListener('change', () => set({ font: sel.value }))
+  row(sec, 'Font', sel)
+
+  const tools = document.createElement('div')
+  tools.className = 'font-tools'
+  const upload = document.createElement('label')
+  upload.className = 'upload'
+  upload.title = 'Use a font file for this session: .ttf, .otf, .woff, or a single-line .svg font'
+  upload.innerHTML = '<input type="file" accept=".ttf,.otf,.woff,.svg" hidden />Add font…'
+  upload.querySelector('input')!.addEventListener('change', (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (file) actions.addFont(file)
+  })
+  tools.append(fontInfo(current, fonts.find((f) => f.name === current)?.singleLine ?? true), upload)
+  sec.append(tools)
+
+  numberRow(sec, 'Size', t.size, unit, { length: true, id: 'text-size' }, (v) => set({ size: v }), rerender)
+  numberRow(sec, 'Spacing', t.lineSpacing, unit, { id: 'text-spacing', step: 0.05 }, (v) => set({ lineSpacing: v }), rerender)
+  selectRow(sec, 'Align', ALIGN_LABELS, t.align, (v) => set({ align: v }))
 }
 
 const STYLE_LABELS: [BorderStyle, string][] = [
@@ -534,6 +620,7 @@ export function renderPanel(root: HTMLElement, state: AppState, actions: PanelAc
   numberRow(hole, holeLabels(s.kind).offset, d.hole.offset, unit, { length: true, id: 'hole-offset' }, (v) =>
     actions.update((x) => ({ ...x, hole: { ...x.hole, offset: v } })), rerender)
 
+  textSection(root, state, actions, rerender)
   borderSection(root, state, actions, rerender)
 
   // Sheet: the paper the copies are laid out on. Only shown in the Sheet view.
