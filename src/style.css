@@ -477,3 +477,13 @@ a.version:hover {
   color: var(--accent);
   opacity: 1;
 }
+
+/* A small text button, like the All control next to the sheet count. */
+button.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: underline;
+}

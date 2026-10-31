@@ -259,21 +259,36 @@ function sheetSection(root: HTMLElement, state: AppState, actions: PanelActions,
   }
   numberRow(sheetSec, 'Margin', sh.margin, unit, { length: true }, (v) => setSheet({ margin: v }), rerender)
   numberRow(sheetSec, 'Gap', sh.gap, unit, { length: true }, (v) => setSheet({ gap: v }), rerender)
-  // Count: empty means as many as fit.
+  // Count: empty (or 0, one step down from 1) means as many as fit.
+  const most = layoutSheet(d, { ...sh, count: null }).length
   const count = document.createElement('input')
   count.type = 'number'
   count.id = 'sheet-count'
-  count.min = '1'
+  // While empty, the up arrow starts at 1; once set, the down arrow can reach 0.
+  count.min = sh.count === null ? '1' : '0'
   count.step = '1'
-  count.placeholder = 'As many as fit'
+  count.placeholder = `All that fit (${most})`
   count.value = sh.count === null ? '' : String(sh.count)
   count.addEventListener('change', () => {
     if (count.value.trim() === '') return setSheet({ count: null })
     const v = count.valueAsNumber
     if (!Number.isFinite(v)) return rerender()
-    setSheet({ count: v })
+    setSheet({ count: v < 1 ? null : v })
   })
-  row(sheetSec, 'Count', count)
+  const countRow = row(sheetSec, 'Count', count)
+  if (sh.count !== null) {
+    const all = document.createElement('button')
+    all.type = 'button'
+    all.className = 'link-button'
+    all.textContent = 'All'
+    all.title = 'Cut as many as fit on the sheet'
+    all.addEventListener('click', (e) => {
+      // Inside the row's label: don't also focus the field.
+      e.preventDefault()
+      setSheet({ count: null })
+    })
+    countRow.querySelector('output')!.append(all)
+  }
   const summary = sheetSummary(d, sh)
   const note = document.createElement('p')
   note.className = 'sheet-summary' + (summary.fits ? '' : ' error')

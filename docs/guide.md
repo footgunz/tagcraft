@@ -106,7 +106,7 @@ Set up the paper in the panel's **Sheet** section, which appears while you're in
 | **Size** | **Letter** (8.5" × 11"), **A4** (210 × 297 mm), or **Custom**, with your own **Width** and **Height**, for a partial sheet, a scrap or an odd paper size (up to 12" × 24"). |
 | **Margin** | Space kept clear around the edges of the sheet. Default 1/4". |
 | **Gap** | Space between neighbouring tags. Default 1/8". |
-| **Count** | Leave it empty for as many as fit, or type a smaller number to cut only that many. |
+| **Count** | Leave it empty for as many as fit (the field shows how many that is), or type a smaller number to cut only that many. To go back to as many as fit, press **All** next to the field, step the number down below 1, or clear it. |
 
 The line under the settings says how many tags fit and how they sit (upright, turned on their side, or flipped upside down), for example **15 tags fit · 15 turned**, or **Cutting 4 of 15** when you set a count.
 
