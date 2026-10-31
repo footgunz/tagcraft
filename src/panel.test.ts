@@ -86,6 +86,6 @@ describe('isUnchangedPreset with a border', () => {
 describe('isUnchangedPreset with text', () => {
   it('counts turning text on as a change', () => {
     const gift = settleDesign(PRESETS[0]).design
-    expect(isUnchangedPreset({ ...gift, text: { content: 'Hi', font: 'Relief SingleLine', size: 5, lineSpacing: 1, align: 'center', box: { x: 20, y: 5, w: 40, h: 20 } } })).toBe(false)
+    expect(isUnchangedPreset({ ...gift, text: { content: 'Hi', font: 'Relief SingleLine', size: 5, lineSpacing: 1, align: 'center', box: { x: 20, y: 5, w: 40, h: 20 }, rotation: 0 } })).toBe(false)
   })
 })

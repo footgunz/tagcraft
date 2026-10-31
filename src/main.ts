@@ -3,7 +3,7 @@ import { normalizeContour, type Contour } from './contour'
 import { normalizeDesign, PRESETS, type Design, type Hole, type TextBox } from './design'
 import { holeWallOk, settleDesign } from './hole'
 import { applyPointEdit, buildOutline } from './shapes'
-import { renderPanel, syncHoleFields, type AppState, type PanelActions } from './panel'
+import { renderPanel, syncHoleFields, syncTextFields, type AppState, type PanelActions } from './panel'
 import { renderPreview, type PreviewActions } from './preview'
 import { DEFAULT_SHEET, layoutSheet, normalizeSheet } from './sheet'
 import { createStorage, defaultStore } from './storage'
@@ -40,7 +40,7 @@ const HINT = 'Drag the hole to move it \u00b7 drag its edge dot to resize'
 
 const SHEET_HINT = 'Tags are packed from the top-left so the leftover paper stays in one piece'
 
-const TEXT_HINT = 'Drag the hole to move it · drag the text box to move it, or its handles to resize it'
+const TEXT_HINT = 'Drag the hole to move it \u00b7 drag the text box to move it, its handles to resize it, or its top dot to turn it (Shift: 15\u00b0 steps)'
 
 function renderStatus() {
   const hint = state.view === 'sheet' ? SHEET_HINT : state.design.text && !state.editing ? TEXT_HINT : HINT
@@ -194,6 +194,17 @@ const previewActions: PreviewActions = {
     if (final) return commit(next)
     state.design = next
     renderPreview(previewEl, state, previewActions)
+  },
+  setTextRotation(rotation: number, final: boolean, from?: TextBox) {
+    const t = state.design.text
+    if (!t) return
+    // The box may move or shrink so its turned corners stay on the tag; fit it from the box at the
+    // start of the turn, so turning back and forth doesn't keep shrinking it.
+    const next = { ...state.design, text: { ...t, rotation, box: from ?? t.box } }
+    if (final) return commit(next)
+    state.design = normalizeDesign(next)
+    renderPreview(previewEl, state, previewActions)
+    syncTextFields(controlsEl, state)
   },
 }
 
