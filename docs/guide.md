@@ -99,7 +99,7 @@ One font, size, spacing and alignment applies to all the text on the tag.
 - **Drag the dot above the box** to turn it. It snaps to 45° steps when you get close, and to 15° steps while you hold Shift.
 - Words wrap at the box's width. **Anything that doesn't fit in the box is cut off at its edge**, so text never spills outside it: make the box bigger, the text smaller, or the text shorter to show it all.
 - The box always stays on the tag. Turning a box that wouldn't fit shrinks it until it does.
-- If the box reaches over the hole, the status line warns you.
+- Text never runs into the hole: where the box reaches over it, the text there is left out, with a small gap around the hole, and the status line says so.
 
 ## 7. Add a deboss border
 

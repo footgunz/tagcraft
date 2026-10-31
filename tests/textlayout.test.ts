@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Pt } from '../src/contour'
 import { DEFAULT_FONT, fontEntries, loadFont } from '../src/fontlist'
 import { parsePathData, type Font } from '../src/fonts'
-import { layoutLines, layoutText, textPathData, type TextBox, type TextPath, type TextStyle } from '../src/textlayout'
+import { clipOutsideCircle, layoutLines, layoutText, textPathData, type TextBox, type TextPath, type TextStyle } from '../src/textlayout'
 
 // A monospaced test font: every glyph 600 units wide, cap height 700, line height 1000.
 // At size 7 mm that's 0.01 mm a unit: 6 mm a character, 10 mm a line, first baseline 8 mm down.
@@ -153,5 +153,29 @@ describe('textPathData', () => {
     expect(d).toMatch(/^M13 28 L13 21 M/)
     expect(d).toContain('C')
     expect(d.trim().endsWith('Z')).toBe(true)
+  })
+})
+
+describe('clipOutsideCircle', () => {
+  const c = { x: 50, y: 50 }
+  const line = (a: Pt, b: Pt): TextPath => ({ start: a, segs: [{ kind: 'L', to: b }], closed: false })
+  it('cuts a line where it enters and leaves the circle', () => {
+    const out = clipOutsideCircle([line({ x: 30, y: 50 }, { x: 70, y: 50 })], c, 5)
+    expect(out).toHaveLength(2)
+    expect(ends(out).map((p) => p.x)).toEqual([30, 45, 55, 70].map((v) => expect.closeTo(v, 9)))
+  })
+  it('drops strokes entirely inside, and keeps strokes entirely outside', () => {
+    expect(clipOutsideCircle([line({ x: 49, y: 50 }, { x: 51, y: 50 })], c, 5)).toEqual([])
+    const far = line({ x: 0, y: 0 }, { x: 10, y: 0 })
+    expect(clipOutsideCircle([far], c, 5)).toEqual([far])
+  })
+  it('splits curves at the circle, keeping them curves', () => {
+    // The O of the test font around (13, 24.5), radius 3; a circle of radius 2 at its right edge cuts it.
+    const o = layoutText(mono, 'O', style, big)
+    const hole = { x: 16, y: 24.5 }
+    const out = clipOutsideCircle(o, hole, 2)
+    expect(out.length).toBeGreaterThan(0)
+    expect(out.flatMap((p) => p.segs).every((s) => s.kind === 'C')).toBe(true)
+    for (const p of sampled(out)) expect(Math.hypot(p.x - hole.x, p.y - hole.y)).toBeGreaterThanOrEqual(2 - 1e-6)
   })
 })

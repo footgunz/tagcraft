@@ -4,7 +4,10 @@ import type { Font } from './fonts'
 import { loadedFont } from './fontlist'
 import { holeCenter } from './hole'
 import { holeAxisOf } from './shapes'
-import { layoutText, type TextPath } from './textlayout'
+import { clipOutsideCircle, layoutText, type TextPath } from './textlayout'
+
+/** Space kept between text and the hole's edge (mm), so the pen never draws into the hole. */
+export const HOLE_TEXT_GAP = 1
 
 /** The tag's free area beside (or below) the hole, inset by the minimum wall. */
 export function freeArea(d: Design): TextBox {
@@ -29,19 +32,23 @@ export function defaultText(d: Design): TextSettings {
 // Layouts are cached per loaded font, so an uploaded font that replaces one of the same name lays out afresh.
 const cache = new WeakMap<Font, Map<string, TextPath[]>>()
 
-/** The text's strokes in tag mm, clipped to its box; empty without text or while its font loads. */
+/** The text's strokes in tag mm, clipped to its box and kept out of the hole; empty without text or while its font loads. */
 export function textPaths(d: Design): TextPath[] {
   const t = d.text
   const font = t && loadedFont(t.font)
   if (!t || !font || !t.content.trim()) return []
   let byText = cache.get(font)
   if (!byText) cache.set(font, (byText = new Map()))
-  const key = JSON.stringify(t)
+  const hole = holeCenter(d)
+  const clear = d.hole.diameter / 2 + HOLE_TEXT_GAP
+  const key = JSON.stringify([t, hole, clear])
   let out = byText.get(key)
   if (!out) {
     // Laid out and clipped in the box's own frame, then turned with the box.
     out = layoutText(font, t.content, t, t.box)
     if (t.rotation) out = mapTextPaths(out, rotateAbout(boxCenter(t.box), t.rotation))
+    // Text over the hole is cut away, with a small gap, so the pen doesn't draw into the hole.
+    out = clipOutsideCircle(out, hole, clear)
     if (byText.size > 16) byText.clear()
     byText.set(key, out)
   }

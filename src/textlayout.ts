@@ -135,85 +135,119 @@ function sub(from: Pt, s: Seg, t0: number, t1: number): Piece {
   return { from: rev[3], seg: { kind: 'C', c1: rev[2], c2: rev[1], to: rev[0] } }
 }
 
-/** Parameters in (0, 1) where the segment crosses the box's edge lines. */
-function crossings(from: Pt, s: Seg, box: TextBox): number[] {
+/** Parameters in (0, 1) where f changes sign: a fine grid, then bisection to each crossing. */
+function roots(f: (t: number) => number): number[] {
+  const N = 32
+  const ts: number[] = []
+  let t0 = 0
+  let f0 = f(0)
+  for (let i = 1; i <= N; i++) {
+    const t1 = i / N
+    const f1 = f(t1)
+    if ((f0 < 0 && f1 > 0) || (f0 > 0 && f1 < 0)) {
+      let lo = t0
+      let hi = t1
+      let flo = f0
+      for (let k = 0; k < 50; k++) {
+        const mid = (lo + hi) / 2
+        const fm = f(mid)
+        if ((flo < 0) === (fm < 0)) {
+          lo = mid
+          flo = fm
+        } else hi = mid
+      }
+      const t = (lo + hi) / 2
+      if (t > EPS && t < 1 - EPS) ts.push(t)
+    }
+    t0 = t1
+    f0 = f1
+  }
+  return ts
+}
+
+/** An area strokes are cut against: where a segment crosses its edge, which side to keep, and edge snapping. */
+interface Region {
+  crossings(from: Pt, s: Seg): number[]
+  keep(p: Pt): boolean
+  snap(p: Pt): Pt
+}
+
+/** Keep what's inside the box. */
+function boxRegion(box: TextBox): Region {
   const edges: [keyof Pt, number][] = [
     ['x', box.x],
     ['x', box.x + box.w],
     ['y', box.y],
     ['y', box.y + box.h],
   ]
-  const ts: number[] = []
-  if (s.kind === 'L') {
-    for (const [axis, v] of edges) {
-      const d = s.to[axis] - from[axis]
-      if (Math.abs(d) < EPS) continue
-      const t = (v - from[axis]) / d
-      if (t > EPS && t < 1 - EPS) ts.push(t)
-    }
-    return ts
-  }
-  // Cubics: find sign changes on a fine grid, then bisect each to the crossing.
-  const N = 32
-  for (const [axis, v] of edges) {
-    const f = (t: number) => pointAt(from, s, t)[axis] - v
-    let t0 = 0
-    let f0 = f(0)
-    for (let i = 1; i <= N; i++) {
-      const t1 = i / N
-      const f1 = f(t1)
-      if ((f0 < 0 && f1 > 0) || (f0 > 0 && f1 < 0)) {
-        let lo = t0
-        let hi = t1
-        let flo = f0
-        for (let k = 0; k < 50; k++) {
-          const mid = (lo + hi) / 2
-          const fm = f(mid)
-          if ((flo < 0) === (fm < 0)) {
-            lo = mid
-            flo = fm
-          } else hi = mid
+  const near = (v: number, lo: number, hi: number) => (Math.abs(v - lo) < 1e-6 ? lo : Math.abs(v - hi) < 1e-6 ? hi : v)
+  return {
+    crossings(from, s) {
+      if (s.kind === 'L') {
+        const ts: number[] = []
+        for (const [axis, v] of edges) {
+          const d = s.to[axis] - from[axis]
+          if (Math.abs(d) < EPS) continue
+          const t = (v - from[axis]) / d
+          if (t > EPS && t < 1 - EPS) ts.push(t)
         }
-        const t = (lo + hi) / 2
-        if (t > EPS && t < 1 - EPS) ts.push(t)
+        return ts
       }
-      t0 = t1
-      f0 = f1
-    }
+      return edges.flatMap(([axis, v]) => roots((t) => pointAt(from, s, t)[axis] - v))
+    },
+    keep: (p) => p.x >= box.x - 1e-7 && p.x <= box.x + box.w + 1e-7 && p.y >= box.y - 1e-7 && p.y <= box.y + box.h + 1e-7,
+    // A clipped end that sits on an edge lands exactly on it.
+    snap: (p) => ({ x: near(p.x, box.x, box.x + box.w), y: near(p.y, box.y, box.y + box.h) }),
   }
-  return ts
 }
 
-const inBox = (p: Pt, b: TextBox) => p.x >= b.x - 1e-7 && p.x <= b.x + b.w + 1e-7 && p.y >= b.y - 1e-7 && p.y <= b.y + b.h + 1e-7
-
-/** Snap a point that sits on an edge exactly onto it, so clipped ends land on the box. */
-function snap(p: Pt, b: TextBox): Pt {
-  const s = (v: number, lo: number, hi: number) => (Math.abs(v - lo) < 1e-6 ? lo : Math.abs(v - hi) < 1e-6 ? hi : v)
-  return { x: s(p.x, b.x, b.x + b.w), y: s(p.y, b.y, b.y + b.h) }
+/** Keep what's outside the circle. */
+function outsideCircle(c: Pt, r: number): Region {
+  return {
+    crossings(from, s) {
+      if (s.kind === 'L') {
+        const dx = s.to.x - from.x
+        const dy = s.to.y - from.y
+        const fx = from.x - c.x
+        const fy = from.y - c.y
+        const A = dx * dx + dy * dy
+        const B = 2 * (fx * dx + fy * dy)
+        const disc = B * B - 4 * A * (fx * fx + fy * fy - r * r)
+        if (A < EPS || disc <= 0) return []
+        const q = Math.sqrt(disc)
+        return [(-B - q) / (2 * A), (-B + q) / (2 * A)].filter((t) => t > EPS && t < 1 - EPS)
+      }
+      return roots((t) => {
+        const p = pointAt(from, s, t)
+        return Math.hypot(p.x - c.x, p.y - c.y) - r
+      })
+    },
+    keep: (p) => Math.hypot(p.x - c.x, p.y - c.y) >= r - 1e-7,
+    snap: (p) => p,
+  }
 }
 
-/** Cut a stroke at the box edge, keeping the pieces inside. */
-function clipPath(p: TextPath, box: TextBox): TextPath[] {
+/** Cut a stroke where it crosses the region's edge, keeping the pieces on the kept side. */
+function clipPath(p: TextPath, region: Region): TextPath[] {
   const out: TextPath[] = []
   let cur: TextPath | null = null
   let whole = true
   let from = p.start
   for (const s of p.segs) {
-    const ts = [0, ...crossings(from, s, box).sort((a, b) => a - b), 1]
+    const ts = [0, ...region.crossings(from, s).sort((a, b) => a - b), 1]
     if (ts.length > 2) whole = false
     for (let i = 0; i + 1 < ts.length; i++) {
       if (ts[i + 1] - ts[i] < EPS) continue
-      const inside = inBox(pointAt(from, s, (ts[i] + ts[i + 1]) / 2), box)
-      if (!inside) {
+      if (!region.keep(pointAt(from, s, (ts[i] + ts[i + 1]) / 2))) {
         whole = false
         if (cur) out.push(cur)
         cur = null
         continue
       }
       const piece = ts.length === 2 ? { from, seg: s } : sub(from, s, ts[i], ts[i + 1])
-      const to = snap(piece.seg.to, box)
+      const to = region.snap(piece.seg.to)
       const seg: Seg = piece.seg.kind === 'L' ? { kind: 'L', to } : { ...piece.seg, to }
-      if (!cur) cur = { start: snap(piece.from, box), segs: [], closed: false }
+      if (!cur) cur = { start: region.snap(piece.from), segs: [], closed: false }
       cur.segs.push(seg)
     }
     from = s.to
@@ -223,12 +257,19 @@ function clipPath(p: TextPath, box: TextBox): TextPath[] {
   return out
 }
 
+/** Cut strokes away inside a circle (the hole), keeping everything outside it. */
+export function clipOutsideCircle(paths: TextPath[], c: Pt, r: number): TextPath[] {
+  const region = outsideCircle(c, r)
+  return paths.flatMap((p) => clipPath(p, region))
+}
+
 /**
  * The text's strokes in tag mm: wrapped, aligned and clipped to the box.
  * Nothing outside the box is ever drawn.
  */
 export function layoutText(font: Font, text: string, style: TextStyle, box: TextBox): TextPath[] {
-  return placeGlyphs(font, layoutLines(font, text, style, box), style).flatMap((p) => clipPath(p, box))
+  const region = boxRegion(box)
+  return placeGlyphs(font, layoutLines(font, text, style, box), style).flatMap((p) => clipPath(p, region))
 }
 
 function num(v: number): string {
