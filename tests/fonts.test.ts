@@ -168,3 +168,24 @@ describe('added fonts', () => {
     expect(() => addFont('notes.ttf', new TextEncoder().encode('hello').buffer as ArrayBuffer)).toThrow()
   })
 })
+
+describe('cap height', () => {
+  it('is measured from the H, not taken from metadata that may be wrong', () => {
+    // The tiny font declares 700 but its H reaches 650.
+    const f = parseSvgFont(tiny.replace('<glyph glyph-name="V"', '<glyph unicode="H" d="M0 0 L0 650 M300 0 L300 650 M0 300 L300 300" />\n<glyph glyph-name="V"'), 'Tiny')
+    expect(f.capHeight).toBe(650)
+    // Without an H, the declared value is used.
+    expect(parseSvgFont(tiny, 'Tiny').capHeight).toBe(700)
+  })
+  it('matches the H of every bundled font', async () => {
+    // Fonts added by earlier tests in this file may have no H.
+    for (const e of fontEntries().filter((f) => f.group === 'bundled')) {
+      const font = await loadFont(e.name)
+      const ys = font.glyph('H')!.paths.flatMap((p) => [p.start.y, ...p.segs.map((s) => s.to.y)])
+      expect(font.capHeight, e.name).toBeCloseTo(Math.max(...ys), 6)
+      // Sane against the em: capitals are between half and nine-tenths of it.
+      expect(font.capHeight / font.unitsPerEm, e.name).toBeGreaterThan(0.5)
+      expect(font.capHeight / font.unitsPerEm, e.name).toBeLessThan(0.9)
+    }
+  })
+})
