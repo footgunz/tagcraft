@@ -30,6 +30,36 @@ export const BORDER_STYLES: BorderStyle[] = ['solid', 'dashed', 'dotted', 'doubl
 /** A new border: 1/8" in from the edge, one solid line. */
 export const DEFAULT_BORDER: BorderSettings = { inset: 3.175, style: 'solid', weight: 1 }
 
+export type TextAlign = 'left' | 'center' | 'right'
+
+/** mm, in tag coordinates (y down). */
+export interface TextBox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** The text layer: one box, one type style for all of its text. Sizes in mm. */
+export interface TextSettings {
+  content: string
+  font: string
+  /** Letter (cap) height. */
+  size: number
+  /** Multiple of the font's natural line height. */
+  lineSpacing: number
+  align: TextAlign
+  box: TextBox
+}
+
+export const TEXT_ALIGNS: TextAlign[] = ['left', 'center', 'right']
+/** The font a new text layer uses, and the fallback for a font the app doesn't have. */
+export const DEFAULT_FONT = 'Relief SingleLine'
+export const DEFAULT_TEXT = 'Happy Birthday!'
+/** Smallest text box side (mm). */
+export const MIN_TEXT_BOX = 3
+const MAX_TEXT_LENGTH = 500
+
 export interface Design {
   name: string
   width: number
@@ -39,6 +69,7 @@ export interface Design {
   hole: Hole
   points: Contour | null // bezier edits, normalized to the unit box; null = settings-driven
   border: BorderSettings | null // null = no border
+  text: TextSettings | null // null = no text
 }
 
 /** Minimum wall between the hole and the outline: 1/8 inch. */
@@ -62,12 +93,14 @@ export const RANGES: Record<string, { min: number; max: number; step: number }> 
   offset: { min: 0, max: 304.8, step: 0.1 },
   borderInset: { min: 0.5, max: 25.4, step: 0.1 },
   borderWeight: { min: 1, max: 3, step: 1 },
+  textSize: { min: 1, max: 50.8, step: 0.1 },
+  lineSpacing: { min: 0.5, max: 3, step: 0.05 },
 }
 
 const HOLE: Hole = { diameter: 6.35, offset: 8.89 }
 
 function preset(name: string, width: number, height: number, lock: boolean, shape: ShapeSettings, hole: Hole = HOLE): Design {
-  return { name, width, height, lockProportions: lock, shape, hole: { ...hole }, points: null, border: null }
+  return { name, width, height, lockProportions: lock, shape, hole: { ...hole }, points: null, border: null, text: null }
 }
 
 function lockedHeight(width: number, shape: ShapeSettings): number {
@@ -179,6 +212,7 @@ export function normalizeDesign(input: unknown): Design {
 
   const h = rec(d.hole)
   const b = d.border === null || d.border === undefined ? null : rec(d.border)
+  const t = d.text === null || d.text === undefined ? null : rec(d.text)
   return {
     name: typeof d.name === 'string' && d.name.trim() ? d.name : GIFT.name,
     width,
@@ -195,5 +229,21 @@ export function normalizeDesign(input: unknown): Design {
       style: BORDER_STYLES.find((st) => st === b.style) ?? DEFAULT_BORDER.style,
       weight: range('borderWeight', b.weight, DEFAULT_BORDER.weight, undefined, true) as 1 | 2 | 3,
     },
+    text: t && normalizeText(t, width, height),
+  }
+}
+
+/** Repair text settings, keeping the box inside the tag. */
+function normalizeText(t: Record<string, unknown>, width: number, height: number): TextSettings {
+  const bx = rec(t.box)
+  const w = clampNum(bx.w, width - 2 * MIN_WALL_MM, Math.min(MIN_TEXT_BOX, width), width)
+  const h = clampNum(bx.h, height - 2 * MIN_WALL_MM, Math.min(MIN_TEXT_BOX, height), height)
+  return {
+    content: typeof t.content === 'string' ? t.content.slice(0, MAX_TEXT_LENGTH) : DEFAULT_TEXT,
+    font: typeof t.font === 'string' && t.font.trim() ? t.font : DEFAULT_FONT,
+    size: range('textSize', t.size, 5),
+    lineSpacing: range('lineSpacing', t.lineSpacing, 1),
+    align: TEXT_ALIGNS.find((a) => a === t.align) ?? 'center',
+    box: { x: clampNum(bx.x, (width - w) / 2, 0, width - w), y: clampNum(bx.y, (height - h) / 2, 0, height - h), w, h },
   }
 }

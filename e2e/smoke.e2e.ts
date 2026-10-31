@@ -161,3 +161,64 @@ test('a border too big for the tag warns and stays out of the export', async ({ 
   const { svg } = await downloaded(page, () => page.getByRole('button', { name: 'Download SVG' }).click())
   expect(svg).not.toContain('Border')
 })
+
+test('text: type it, move and resize its box, and export it as its own layer', async ({ page }) => {
+  const text = section(page, 'Text')
+  await text.getByRole('checkbox').check()
+  await expect(page.locator('#preview path.text')).toHaveCount(1)
+  await expect(page.locator('#preview rect.textbox')).toHaveCount(1)
+  await expect(page.locator('#preview .box-handle')).toHaveCount(8)
+
+  // Typing redraws the preview without losing the caret.
+  const area = page.locator('#text-content')
+  await area.click()
+  await area.press('Control+End')
+  await area.pressSequentially(' Love, Sam')
+  await expect(area).toBeFocused()
+  const before = await page.locator('#preview path.text').getAttribute('d')
+  expect(before!.split('M').length).toBeGreaterThan(30)
+
+  // Resize from the bottom-right handle, then move from inside.
+  const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('tagcraft:current')!).text.box)
+  const box0 = await stored()
+  const handle = (await page.locator('#preview .box-handle.se').boundingBox())!
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handle.x - 60, handle.y - 30, { steps: 4 })
+  await page.mouse.up()
+  const box1 = await stored()
+  expect(box1.w).toBeLessThan(box0.w)
+  expect(box1.h).toBeLessThan(box0.h)
+  const inside = (await page.locator('#preview rect.textbox').boundingBox())!
+  await page.mouse.move(inside.x + inside.width / 2, inside.y + inside.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(inside.x + inside.width / 2 + 25, inside.y + inside.height / 2 + 10, { steps: 4 })
+  await page.mouse.up()
+  const box2 = await stored()
+  expect(box2.x).toBeGreaterThan(box1.x)
+  expect(box2.w).toBeCloseTo(box1.w, 6)
+
+  // Another font redraws the text.
+  await page.locator('#text-font').selectOption('EMS Tech')
+  await expect(page.locator('#preview path.text')).not.toHaveAttribute('d', before!)
+
+  const { svg } = await downloaded(page, () => page.getByRole('button', { name: 'Download SVG' }).click())
+  expect(svg).toContain('inkscape:label="Text"')
+  expect(svg).toMatch(/<path id="text" d="M[^"]+" fill="none"/)
+  expect(svg).not.toContain('textbox')
+
+  await page.getByRole('button', { name: 'Sheet', exact: true }).click()
+  await expect(page.locator('#preview path.text')).toHaveCount(15)
+  const sheet = await downloaded(page, () => page.getByRole('button', { name: 'Download sheet SVG' }).click())
+  expect(sheet.svg.match(/<path id="text-/g)).toHaveLength(15)
+})
+
+test('a text box over the hole warns', async ({ page }) => {
+  await section(page, 'Text').getByRole('checkbox').check()
+  const inside = (await page.locator('#preview rect.textbox').boundingBox())!
+  await page.mouse.move(inside.x + inside.width / 2, inside.y + inside.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(inside.x - 200, inside.y + inside.height / 2, { steps: 4 })
+  await page.mouse.up()
+  await expect(page.locator('#status')).toContainText('text box overlaps the hole')
+})

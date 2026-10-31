@@ -1,6 +1,6 @@
 import './style.css'
 import { normalizeContour, type Contour } from './contour'
-import { PRESETS, type Design, type Hole } from './design'
+import { normalizeDesign, PRESETS, type Design, type Hole, type TextBox } from './design'
 import { holeWallOk, settleDesign } from './hole'
 import { applyPointEdit, buildOutline } from './shapes'
 import { renderPanel, syncHoleFields, type AppState, type PanelActions } from './panel'
@@ -9,7 +9,8 @@ import { DEFAULT_SHEET, layoutSheet, normalizeSheet } from './sheet'
 import { createStorage, defaultStore } from './storage'
 import { designToSvg, sheetSvgFilename, sheetToSvg, svgFilename } from './svg'
 import { checkForUpdate } from './update'
-import { DEFAULT_FONT, loadFont } from './fontlist'
+import { addFont, DEFAULT_FONT, loadedFont, loadFont, resolveFont } from './fontlist'
+import { defaultText, textBoxOverlapsHole } from './text'
 import { borderPaths } from './border'
 import type { Unit } from './units'
 
@@ -39,8 +40,11 @@ const HINT = 'Drag the hole to move it \u00b7 drag its edge dot to resize'
 
 const SHEET_HINT = 'Tags are packed from the top-left so the leftover paper stays in one piece'
 
+const TEXT_HINT = 'Drag the hole to move it · drag the text box to move it, or its handles to resize it'
+
 function renderStatus() {
-  statusEl.textContent = state.status || (state.view === 'sheet' ? SHEET_HINT : HINT)
+  const hint = state.view === 'sheet' ? SHEET_HINT : state.design.text && !state.editing ? TEXT_HINT : HINT
+  statusEl.textContent = state.status || hint
   statusEl.classList.toggle('error', state.status.startsWith('Warning'))
 }
 
@@ -79,9 +83,19 @@ function commit(next: Design, opts: { clamp?: boolean } = {}) {
   else if (adjusted) state.status = 'Hole adjusted to keep a 1/8" wall'
   else if (design.border && borderPaths(design, design.border).collapsed)
     state.status = "Warning: the border inset is too big for this shape, so there's no border"
+  else if (design.text && resolveFont(design.text.font).fellBack)
+    state.status = `The font "${design.text.font}" isn't available here, so ${DEFAULT_FONT} is used`
+  else if (textBoxOverlapsHole(design)) state.status = 'Warning: the text box overlaps the hole'
   else state.status = storage.available ? '' : STORAGE_MSG
   render()
   storage.saveCurrent(state.design)
+  loadTextFont()
+}
+
+/** Fonts load on first use: once the text's font is ready, draw again. */
+function loadTextFont() {
+  const t = state.design.text
+  if (t && !loadedFont(t.font)) void loadFont(t.font).then(render)
 }
 
 const panelActions: PanelActions = {
@@ -135,6 +149,26 @@ const panelActions: PanelActions = {
     storage.saveSheet(state.sheet)
     render()
   },
+  updateText(patch, live = false) {
+    const d = state.design
+    const next = { ...d, text: patch(d.text ?? defaultText(d)) }
+    if (!live) return commit(next)
+    // While typing: redraw the preview and save, but leave the panel (and the caret) alone.
+    state.design = normalizeDesign(next)
+    renderPreview(previewEl, state, previewActions)
+    storage.saveCurrent(state.design)
+  },
+  addFont(file) {
+    void (async () => {
+      try {
+        const entry = addFont(file.name, await file.arrayBuffer())
+        commit({ ...state.design, text: { ...(state.design.text ?? defaultText(state.design)), font: entry.name } })
+        setStatus(`Added ${entry.name} for this session${entry.singleLine ? '' : ': an outline font, so a pen draws hollow letters'}`)
+      } catch {
+        setStatus(`Warning: couldn't read ${file.name} as a font`)
+      }
+    })()
+  },
 }
 
 const previewActions: PreviewActions = {
@@ -153,6 +187,14 @@ const previewActions: PreviewActions = {
     renderPreview(previewEl, state, previewActions)
     syncHoleFields(controlsEl, state)
   },
+  setTextBox(box: TextBox, final: boolean) {
+    const t = state.design.text
+    if (!t) return
+    const next = { ...state.design, text: { ...t, box } }
+    if (final) return commit(next)
+    state.design = next
+    renderPreview(previewEl, state, previewActions)
+  },
 }
 
 function setStatus(msg: string) {
@@ -168,15 +210,16 @@ viewEl.addEventListener('click', (e) => {
   render()
 })
 
-/** What the export buttons produce in the current view. */
-function exportSvg(): { svg: string; filename: string } {
+/** What the export buttons produce in the current view, once the text's font has loaded. */
+async function exportSvg(): Promise<{ svg: string; filename: string }> {
+  if (state.design.text) await loadFont(state.design.text.font)
   return state.view === 'sheet'
     ? { svg: sheetToSvg(state.design, state.sheet, state.unit), filename: sheetSvgFilename(state.design, state.sheet) }
     : { svg: designToSvg(state.design, state.unit), filename: svgFilename(state.design) }
 }
 
-downloadBtn.addEventListener('click', () => {
-  const { svg, filename } = exportSvg()
+downloadBtn.addEventListener('click', async () => {
+  const { svg, filename } = await exportSvg()
   const blob = new Blob([svg], { type: 'image/svg+xml' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -191,7 +234,7 @@ downloadBtn.addEventListener('click', () => {
 
 copyBtn.addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText(exportSvg().svg)
+    await navigator.clipboard.writeText((await exportSvg()).svg)
     setStatus(state.view === 'sheet' ? 'Sheet SVG copied to the clipboard' : 'SVG copied to the clipboard')
   } catch {
     setStatus('Warning: could not copy to the clipboard')

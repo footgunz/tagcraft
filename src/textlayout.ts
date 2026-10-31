@@ -1,15 +1,8 @@
 import type { Pt } from './contour'
+import type { TextAlign, TextBox } from './design'
 import type { Font, Seg } from './fonts'
 
-export type TextAlign = 'left' | 'center' | 'right'
-
-/** mm, in tag coordinates (y down). */
-export interface TextBox {
-  x: number
-  y: number
-  w: number
-  h: number
-}
+export type { TextAlign, TextBox }
 
 export interface TextStyle {
   /** Letter (cap) height, mm. */

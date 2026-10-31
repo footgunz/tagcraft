@@ -498,3 +498,118 @@ button.link-button {
   stroke-linejoin: round;
   pointer-events: none;
 }
+
+/* Text, in the same blue as its export layer. */
+#preview .text {
+  fill: none;
+  stroke: #1f6feb;
+  stroke-width: 1.2px;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* The text box: shown on the preview only, never exported. */
+#preview .textbox {
+  fill: transparent;
+  stroke: #1f6feb;
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+  cursor: move;
+}
+
+#preview .box-handle {
+  fill: #fff;
+  stroke: #1f6feb;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+#preview .box-handle.nw,
+#preview .box-handle.se {
+  cursor: nwse-resize;
+}
+
+#preview .box-handle.ne,
+#preview .box-handle.sw {
+  cursor: nesw-resize;
+}
+
+#preview .box-handle.n,
+#preview .box-handle.s {
+  cursor: ns-resize;
+}
+
+#preview .box-handle.e,
+#preview .box-handle.w {
+  cursor: ew-resize;
+}
+
+/* Font tools in the Text section, as in Glyphcraft. */
+.font-select {
+  width: 100%;
+}
+
+.font-tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.font-tools .font-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.font-info {
+  font-size: 12px;
+}
+
+.font-info summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.font-info p {
+  margin: 6px 0 0;
+}
+
+.font-info .muted {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.font-info pre.license {
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 6px 0 0;
+}
+
+.upload {
+  font: inherit;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.upload:hover {
+  border-color: var(--accent);
+}
+
+#text-content {
+  width: 100%;
+  margin-bottom: 6px;
+}
