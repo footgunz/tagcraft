@@ -10,7 +10,7 @@ The left panel is the controls; the right side is a live preview with the tag's 
 
 ## 1. Pick a preset
 
-**Preset** is a grid of thumbnails. Click one to load it. Your own saved designs appear after the built-in ones (see [Save your design](#6-save-your-design)).
+**Preset** is a grid of thumbnails. Click one to load it. Your own saved designs appear after the built-in ones (see [Save your design](#8-save-your-design)).
 
 ![Clicking through the built-in presets](assets/presets.gif)
 
@@ -77,7 +77,45 @@ For a shape no setting can make, press **Edit points…**. The outline (not the 
 - The hole stays on the centerline of the edited outline's bounding box and slides along it as before. Moving or resizing the hole, or changing **Width** or **Height**, still keeps the 1/8" wall.
 - Point edits are never blocked. If dragging a point brings the outline closer than 1/8" to the hole, or across it, the hole stays where it is, the status line shows a warning and the hole is highlighted. You can still save and export, so check the preview before you cut.
 
-## 6. Save your design
+## 6. Add text
+
+Turn on **Text** (the checkbox in its heading) to write on the tag. Text is drawn with your cutter's pen, not cut out, and it repeats on every tag of a sheet.
+
+![Turning on text, typing, then moving, resizing and turning its box](assets/text.gif)
+
+- **Text**: type in the box; Enter starts a new line. The preview updates as you type.
+- **Font**: the list starts with **single-line fonts (for pens)**: the pen traces each letter once, which is quick and clean. Fonts you add are listed after them; ordinary TTF, OTF or WOFF fonts are marked **(outline)**, because a pen draws the outline of each letter and the letters come out hollow. **About this font** says which kind a font is and shows its license.
+- **Add font…** uses a font file for this visit only: `.ttf`, `.otf`, `.woff`, or a single-line `.svg` font. A design that names a font the app doesn't have uses Relief SingleLine instead, and the status line says so.
+- **Size** is the height of a capital letter, so a size of 1/4" gives capitals 1/4" tall.
+- **Spacing** is the space between lines, as a multiple of the font's normal line height.
+- **Align** lines left, center or right in the box.
+- **Rotation** turns the text, in degrees.
+
+One font, size, spacing and alignment applies to all the text on the tag.
+
+**The text box.** Text sits in a box with a dashed border on the preview; the border is never cut or drawn. A new box starts beside the hole (or below it on polygons and stars).
+
+- **Drag inside the box** to move it, and **drag its square handles** to resize it.
+- **Drag the dot above the box** to turn it. It snaps to 45° steps when you get close, and to 15° steps while you hold Shift.
+- Words wrap at the box's width. **Anything that doesn't fit in the box is cut off at its edge**, so text never spills outside it: make the box bigger, the text smaller, or the text shorter to show it all.
+- The box always stays on the tag. Turning a box that wouldn't fit shrinks it until it does.
+- If the box reaches over the hole, the status line warns you.
+
+## 7. Add a deboss border
+
+Turn on **Border** to add a line around the tag, just inside its edge, for a debossing tool (or a scoring tool or pen). It follows the shape, including edited points, and stops short of the hole so it never runs into it.
+
+![Turning on the border, then trying each line style and weight](assets/border.gif)
+
+| Setting | What it does |
+| --- | --- |
+| **Inset** | How far in from the edge the border runs. Default 1/8". |
+| **Line** | **Solid**; **Dashed**; **Dotted** (short dots, like stitching); or **Double**, two lines with a gap between them. Dashes and dots are separate strokes, so the tool lifts between them. |
+| **Weight** | **Thin**, **Medium** or **Bold**: one, two or three passes side by side. A debossing tip has one width, so more passes make a wider line. |
+
+If the inset is too big for the shape, there's no room for a border: the status line says so and no border is exported.
+
+## 8. Save your design
 
 The **Save** section appears once you change anything about a built-in preset; an untouched preset is already in the grid. Type a **Name** and press **Save design** (or Enter). It is stored in your browser and shows up in the preset grid after the built-ins, with its own thumbnail. Saving a name you already used replaces that design. You can't reuse a built-in preset's name.
 
@@ -85,15 +123,23 @@ To delete one, click the **×** on its thumbnail; it turns into **Remove?**, and
 
 If your browser has storage turned off, Save is disabled and the status line says so. Everything else still works. Saved designs live in that one browser; export the SVG if you need the tag elsewhere.
 
-## 7. Export
+## 9. Export
 
 **Download SVG** saves `tagcraft-<design name>.svg`; **Copy SVG** puts the SVG text on the clipboard. The file holds one tag at true size: `width` and `height` are in the display unit you chose (in or mm), with a `viewBox` in mm.
 
-The tag is a single path, outline plus hole, with the hole cut out of it, drawn with real curves in an Inkscape layer named **Tag**.
+The file has up to three Inkscape layers, one for each tool:
 
-To export a whole sheet of copies instead, see [Fill a sheet](#8-fill-a-sheet).
+| Layer | What's in it | Tool |
+| --- | --- | --- |
+| **Tag** | The tag: a single path, outline plus hole, with the hole cut out of it, drawn with real curves | Blade (cut) |
+| **Text** | The text, as blue lines (no fill) | Pen |
+| **Border** | The deboss border, as red lines (no fill) | Deboss, score or pen |
 
-## 8. Fill a sheet
+The Text and Border layers are left out when they're turned off. The text box's dashed border is never in the file.
+
+To export a whole sheet of copies instead, see [Fill a sheet](#10-fill-a-sheet).
+
+## 10. Fill a sheet
 
 To cut many copies of a tag at once, switch the toolbar from **Tag** to **Sheet**. The preview then shows a whole sheet of paper with as many copies of your tag as fit. The dashed line is the margin. Sheet view is for looking only; switch back to **Tag** (or press **Edit points…**) to change the tag. Any change you make to the tag or the sheet shows up on the sheet straight away.
 
@@ -116,8 +162,8 @@ How the tags are laid out:
 - Tags are packed from the top-left corner, so the paper you don't use stays in one piece you can use again as a partial sheet. With a count, the first tags in reading order are kept.
 - Shapes nest when that fits more: rows are staggered so circles and hexagons sit in the gaps of the row above, and stars and triangles are turned alternate ways so their points interlock. A 1" star fits 83 to a Letter sheet this way, against 63 in a plain grid. Tags always stay at least the gap apart, measured between their actual outlines.
 
-In Sheet view the toolbar buttons export the sheet: **Download sheet SVG** saves a file named for the design, sheet and count, such as `tagcraft-gift-tag-letter-15up.svg`, and **Copy sheet SVG** copies it. The SVG is the sheet at true size with each tag as its own path, hole cut out. There's no sheet outline in the file, so nothing extra gets cut. If the tag doesn't fit on the sheet at all, even turned, the summary says so and the buttons are disabled.
+In Sheet view the toolbar buttons export the sheet: **Download sheet SVG** saves a file named for the design, sheet and count, such as `tagcraft-gift-tag-letter-15up.svg`, and **Copy sheet SVG** copies it. The SVG is the sheet at true size with each tag as its own path, hole cut out. Text and the border come along on every tag, turned with it, in their own Text and Border layers. There's no sheet outline in the file, so nothing extra gets cut. If the tag doesn't fit on the sheet at all, even turned, the summary says so and the buttons are disabled.
 
 Your sheet settings are remembered in your browser, separately from your designs. To cut a sheet on a Cricut, see [Cutting a sheet of tags](cricut.md#cutting-a-sheet-of-tags).
 
-Not yet available: text on the tag, and PNG export.
+Not yet available: PNG export.

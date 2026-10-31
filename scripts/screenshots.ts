@@ -347,6 +347,90 @@ async function sheet(browser: Browser) {
   await page.close()
 }
 
+/** Turn on a section whose heading is a checkbox. */
+async function toggleOn(page: Page, title: string) {
+  await spotlight(page, '#controls section h2', title)
+  await apply(page, () => sectionOf(page, title).locator('h2 input').check())
+}
+
+/** Type into the text area a few letters at a time, recording as it goes. */
+async function typeText(page: Page, rec: Recorder, text: string) {
+  for (let i = 3; i < text.length + 3; i += 3) {
+    await apply(page, () =>
+      page.locator('#text-content').evaluate((el: HTMLTextAreaElement, v) => {
+        el.value = v
+        el.dispatchEvent(new Event('input', { bubbles: true }))
+      }, text.slice(0, i)),
+    )
+    await rec.frame(90)
+  }
+  await apply(page, () => page.locator('#text-content').dispatchEvent('change'))
+}
+
+/** Turn on text, type it, pick a font, then resize, move and turn its box. */
+async function text(browser: Browser) {
+  const page = await open(browser, ANIM_VIEWPORT)
+  await scrollTo(page, 'Text')
+  const rec = new Recorder(page)
+  await rec.frame(700)
+  await toggleOn(page, 'Text')
+  await page.waitForTimeout(300)
+  await rec.frame(900)
+  await spotlight(page, '#text-content', '')
+  await page.locator('#text-content').evaluate((el: HTMLTextAreaElement) => {
+    el.value = ''
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await typeText(page, rec, 'Happy Birthday,\nAvery!')
+  rec.hold(700)
+  await spotRow(page, 'Font')
+  for (const font of ['EMS Allure', 'Hershey Serif']) {
+    await choose(page, 'Text', 'Font', font)
+    await page.waitForTimeout(300)
+    await rec.frame(1100)
+  }
+  await unspot(page)
+  await drag(page, rec, await centerOf(page, '#preview .box-handle.se'), [[-40, -20]])
+  await drag(page, rec, await centerOf(page, '#preview rect.textbox'), [[30, 18]])
+  await spotRow(page, 'Rotation')
+  await drag(page, rec, await centerOf(page, '#preview .turn-handle'), [[-45, 6]], 8)
+  rec.hold(1000)
+  rec.save('text.gif')
+  await page.close()
+}
+
+/** Turn on the border, then try each line style, weight and a wider inset. */
+async function border(browser: Browser) {
+  const page = await open(browser, ANIM_VIEWPORT)
+  await scrollTo(page, 'Border')
+  const rec = new Recorder(page)
+  await rec.frame(700)
+  await toggleOn(page, 'Border')
+  await rec.frame(1000)
+  await spotRow(page, 'Line')
+  for (const style of ['dashed', 'dotted', 'double']) {
+    await choose(page, 'Border', 'Line', style)
+    await rec.frame(1000)
+  }
+  await spotRow(page, 'Weight')
+  for (const weight of ['2', '3']) {
+    await choose(page, 'Border', 'Weight', weight)
+    await rec.frame(1000)
+  }
+  await spotRow(page, 'Inset')
+  for (const inset of [0.15, 0.2, 0.25]) {
+    await setNumber(page, 'Border', 'Inset', inset)
+    await rec.frame(400)
+  }
+  rec.hold(700)
+  await setNumber(page, 'Border', 'Inset', 0.125)
+  await choose(page, 'Border', 'Weight', '1')
+  await choose(page, 'Border', 'Line', 'solid')
+  await rec.frame(1200)
+  rec.save('border.gif')
+  await page.close()
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true })
   const server = await createServer({ server: { port: 5199, strictPort: true }, logLevel: 'warn' })
@@ -354,7 +438,7 @@ async function main() {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
   try {
     const only = process.argv.slice(2)
-    const shots = { overview, presets, shapes, hole, editPoints, sheet }
+    const shots = { overview, presets, shapes, hole, editPoints, text, border, sheet }
     for (const [name, shot] of Object.entries(shots)) if (!only.length || only.includes(name)) await shot(browser)
   } finally {
     await browser.close()
